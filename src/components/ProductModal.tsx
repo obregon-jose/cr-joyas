@@ -1,0 +1,109 @@
+"use client";
+
+import { useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ShieldCheck, ShoppingBag, Truck, X } from "lucide-react";
+import SafeImage from "./SafeImage";
+import { Product } from "@/lib/types";
+import { formatCOP } from "@/lib/format";
+import { useCart } from "@/lib/cart";
+
+type Props = { product: Product | null; onClose: () => void };
+
+export default function ProductModal({ product, onClose }: Props) {
+  const { add } = useCart();
+
+  useEffect(() => {
+    if (!product) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", esc);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", esc);
+      document.body.style.overflow = "";
+    };
+  }, [product, onClose]);
+
+  return (
+    <AnimatePresence>
+      {product && (
+        <motion.div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <div className="absolute inset-0 bg-ink-950/85 backdrop-blur-md" onClick={onClose} />
+          <motion.div
+            initial={{ y: 80, scale: 0.92, opacity: 0 }}
+            animate={{ y: 0, scale: 1, opacity: 1 }}
+            exit={{ y: 60, scale: 0.95, opacity: 0 }}
+            transition={{ type: "spring", damping: 26, stiffness: 240 }}
+            className="relative grid max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-gold-400/20 bg-ink-900 md:grid-cols-2"
+          >
+            <button
+              onClick={onClose}
+              aria-label="Cerrar"
+              className="absolute right-4 top-4 z-10 rounded-full bg-ink-950/70 p-2.5 backdrop-blur transition hover:rotate-90 hover:bg-ink-950"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="relative aspect-square overflow-hidden md:aspect-auto md:min-h-[540px]">
+              <motion.div
+                initial={{ scale: 1.25 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
+                className="h-full w-full"
+              >
+                <SafeImage src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+              </motion.div>
+            </div>
+
+            <div className="flex flex-col justify-center gap-6 p-8 md:p-12">
+              <motion.p initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="eyebrow">
+                {product.category}
+              </motion.p>
+              <motion.h3 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="font-serif text-4xl leading-tight md:text-5xl">
+                {product.name}
+              </motion.h3>
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="leading-relaxed text-white/60">
+                {product.description}
+              </motion.p>
+              <motion.dl initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="grid grid-cols-2 gap-4 border-y border-white/10 py-5 text-sm">
+                <div>
+                  <dt className="text-white/40">Material</dt>
+                  <dd className="mt-1 text-gold-100">{product.material || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-white/40">Disponibilidad</dt>
+                  <dd className="mt-1 text-gold-100">{product.stock > 0 ? `${product.stock} unidades` : "Agotado"}</dd>
+                </div>
+              </motion.dl>
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="gold-text font-serif text-4xl">
+                {formatCOP(product.price)}
+              </motion.p>
+              <motion.button
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.45 }}
+                disabled={product.stock <= 0}
+                onClick={() => {
+                  add(product);
+                  onClose();
+                }}
+                className="btn-gold disabled:opacity-40"
+              >
+                <ShoppingBag className="h-4 w-4" /> Agregar al carrito
+              </motion.button>
+              <div className="flex flex-wrap gap-6 text-xs text-white/50">
+                <span className="flex items-center gap-2"><Truck className="h-4 w-4 text-gold-400" /> Envío asegurado</span>
+                <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-gold-400" /> Certificado incluido</span>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
