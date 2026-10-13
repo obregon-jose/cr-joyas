@@ -7,7 +7,6 @@ import Reveal from "./Reveal";
 import ProductCard from "./ProductCard";
 import ProductModal from "./ProductModal";
 import FilterPanel from "./FilterPanel";
-import SortMenu from "./Sortmenu";
 import { useProducts } from "@/lib/use-products";
 import { useCategories } from "@/lib/use-categories";
 import { PAGE_SIZE, useInfiniteReveal } from "@/lib/use-infinite-reveal";
@@ -21,6 +20,7 @@ import {
   materialOptions,
 } from "@/lib/filters";
 import { formatCOP } from "@/lib/format";
+import SortMenu from "./Sortmenu";
 
 type Props = { category: string; setCategory: (c: string) => void };
 
