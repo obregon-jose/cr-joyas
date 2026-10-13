@@ -1,4 +1,4 @@
-import { Collection, Product } from "./types";
+import { Product } from "./types";
 
 // Se usan cuando Supabase aún no está configurado, para ver la tienda funcionando.
 export const demoProducts: Product[] = [
@@ -92,31 +92,31 @@ export const demoProducts: Product[] = [
   },
 ];
 
-export const demoCollections: Collection[] = [
-  {
-    id: "anillos",
-    name: "Anillos",
-    tag: "Compromiso & Eternidad",
-    image_url: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=1000&q=80",
-  },
-  {
-    id: "collares",
-    name: "Collares",
-    tag: "Elegancia en el cuello",
-    image_url: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=1000&q=80",
-  },
-  {
-    id: "aretes",
-    name: "Aretes",
-    tag: "Luz en cada gesto",
-    image_url: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=1000&q=80",
-  },
-  {
-    id: "pulseras",
-    name: "Pulseras",
-    tag: "Detalles que enamoran",
-    image_url: "https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=1000&q=80",
-  },
-];
+// export const demoCollections: Collection[] = [
+//   {
+//     id: "anillos",
+//     name: "Anillos",
+//     tag: "Compromiso & Eternidad",
+//     image_url: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=1000&q=80",
+//   },
+//   {
+//     id: "collares",
+//     name: "Collares",
+//     tag: "Elegancia en el cuello",
+//     image_url: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=1000&q=80",
+//   },
+//   {
+//     id: "aretes",
+//     name: "Aretes",
+//     tag: "Luz en cada gesto",
+//     image_url: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=1000&q=80",
+//   },
+//   {
+//     id: "pulseras",
+//     name: "Pulseras",
+//     tag: "Detalles que enamoran",
+//     image_url: "https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=1000&q=80",
+//   },
+// ];
 
 
