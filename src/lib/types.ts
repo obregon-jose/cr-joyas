@@ -12,6 +12,14 @@ export type Product = {
   created_at?: string;
 };
 
+export type Category = {
+  id: string;
+  name: string;
+  position: number;
+  active: boolean;
+  created_at?: string;
+};
+
 export type CartItem = {
   product: Product;
   qty: number;

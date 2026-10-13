@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff, Loader2, LogOut, Pencil, Trash2, Upload, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { formatCOP } from "@/lib/format";
-import { Order, Product } from "@/lib/types";
+import { Category, Order, Product } from "@/lib/types";
 import UsersPanel from "@/components/UsersPanel";
+import CategoriesPanel from "@/components/CategoriesPanel";
 
 const DEFAULT_CATEGORIES = ["Anillos", "Collares", "Aretes", "Pulseras"];
 
@@ -38,21 +39,41 @@ export default function AdminPage() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isRoot, setIsRoot] = useState(false);
-  const [tab, setTab] = useState<"panel" | "users">("panel");
+  const [tab, setTab] = useState<"panel" | "categories" | "users">("panel");
+  const [catRows, setCatRows] = useState<Category[]>([]);
 
-  const categories = useMemo(
-    () => Array.from(new Set([...DEFAULT_CATEGORIES, ...products.map((p) => p.category)])),
-    [products]
+  // Categorías activas de la tabla (migración 004); si aún no existe, las de siempre.
+  const categoryNames = useMemo(
+    () =>
+      catRows.length
+        ? catRows.filter((c) => c.active).map((c) => c.name)
+        : Array.from(new Set([...DEFAULT_CATEGORIES, ...products.map((p) => p.category)])),
+    [catRows, products]
   );
+
+  // Si el producto en edición tiene una categoría que ya no está en la lista, se conserva como opción.
+  const categories = useMemo(
+    () => (form.category && !categoryNames.includes(form.category) ? [...categoryNames, form.category] : categoryNames),
+    [categoryNames, form.category]
+  );
+
+  // Un producto nuevo no puede quedar con una categoría que ya no existe.
+  useEffect(() => {
+    if (!editingId && categoryNames.length && !categoryNames.includes(form.category)) {
+      setForm((f) => ({ ...f, category: categoryNames[0] }));
+    }
+  }, [editingId, categoryNames, form.category]);
 
   const load = useCallback(async () => {
     if (!supabase) return;
-    const [p, o] = await Promise.all([
+    const [p, o, c] = await Promise.all([
       supabase.from("products").select("*").order("created_at", { ascending: false }),
       supabase.from("orders").select("*").order("created_at", { ascending: false }),
+      supabase.from("categories").select("*").order("position", { ascending: true }),
     ]);
     setProducts((p.data as Product[]) ?? []);
     setOrders((o.data as Order[]) ?? []);
+    setCatRows(c.error ? [] : ((c.data as Category[]) ?? []));
   }, []);
 
   useEffect(() => {
@@ -144,15 +165,10 @@ export default function AdminPage() {
   if (!isAdmin) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
-        <p className="max-w-md text-white/70 flex flex-col gap-3">
-          Tu usuario se encuantra desactivado, comuniquese con el administrador del sitio.
-          <a href={`https://wa.me/573168960724?text=${encodeURIComponent(
-            "Hola, quisiera solicitar acceso a CR JOYAS."
-          )}`}
-            target="_blank"
-            rel="noopener noreferrer"><code className="text-gold-300">Contactar</code></a>
+        <p className="max-w-md text-white/70">
+          Tu usuario no tiene permisos de administrador. Si es tu cuenta, agrégala a la tabla{" "}
+          <code className="text-gold-300">admins</code> (instrucciones al final de la migración 001).
         </p>
-
         <button onClick={() => supabase!.auth.signOut()} className="btn-ghost">Cerrar sesión</button>
       </div>
     );
@@ -243,21 +259,25 @@ export default function AdminPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-14 px-6 py-12">
       <header className="flex items-center justify-between">
-        <h1 className="gold-text font-serif text-4xl">Panel CR JOYAS</h1>
+        <h1 className="gold-text font-serif text-4xl">Panel Aurelia</h1>
         <div className="flex items-center gap-3">
-          {isRoot && (
-            <div className="flex rounded-full border border-white/10 p-1 text-xs uppercase tracking-widest">
-              {(["panel", "users"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`rounded-full px-4 py-2 transition ${tab === t ? "bg-gold-300 text-ink-950" : "text-white/60 hover:text-gold-200"}`}
-                >
-                  {t === "panel" ? "Catálogo" : "Usuarios"}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex rounded-full border border-white/10 p-1 text-xs uppercase tracking-widest">
+            {(
+              [
+                ["panel", "Catálogo"],
+                ["categories", "Categorías"],
+                ...(isRoot ? [["users", "Usuarios"]] : []),
+              ] as ["panel" | "categories" | "users", string][]
+            ).map(([t, label]) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`rounded-full px-4 py-2 transition ${tab === t ? "bg-gold-300 text-ink-950" : "text-white/60 hover:text-gold-200"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <button onClick={() => supabase!.auth.signOut()} className="btn-ghost !px-5 !py-2.5">
             <LogOut className="h-4 w-4" /> Salir
           </button>
@@ -272,110 +292,113 @@ export default function AdminPage() {
       )}
 
       {tab === "panel" && (
-        <>
-          <section className="grid gap-10 lg:grid-cols-[420px_1fr]">
-            <form onSubmit={save} className="h-fit space-y-3 rounded-3xl border border-white/10 bg-ink-900 p-6 lg:sticky lg:top-6">
-              <div className="flex items-center justify-between">
-                <h2 className="font-serif text-2xl">{editingId ? "Editar producto" : "Nuevo producto"}</h2>
-                {editingId && (
-                  <button type="button" onClick={cancelEdit} className="flex items-center gap-1 text-xs text-white/50 hover:text-white">
-                    <X className="h-3.5 w-3.5" /> Cancelar
-                  </button>
-                )}
-              </div>
-              <input className="input" placeholder="Nombre" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-              <textarea className="input" rows={3} placeholder="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-              <div className="grid grid-cols-2 gap-3">
-                <input className="input" type="number" min={0} placeholder="Precio COP" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
-                <input className="input" type="number" min={0} placeholder="Stock" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} required />
-              </div>
-              <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                {categories.map((c) => <option key={c} className="bg-ink-900">{c}</option>)}
-              </select>
-              <input className="input" placeholder="Material (Oro 18k · Diamante)" value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} />
-              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gold-400/40 p-4 text-sm text-white/60 transition hover:border-gold-300">
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 text-gold-300" />}
-                {form.image_url ? "Imagen lista ✓ (clic para cambiarla)" : "Subir imagen (ImgBB)"}
-                <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-              </label>
-              {form.image_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={form.image_url} alt="Vista previa" className="h-40 w-full rounded-xl object-cover" />
-              )}
-              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/70">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} /> Destacado
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Visible en la tienda
-                </label>
-              </div>
-              {msg && <p className="text-sm text-gold-300">{msg}</p>}
-              <button disabled={saving || uploading} className="btn-gold w-full disabled:opacity-50">
-                {saving ? "Guardando..." : editingId ? "Guardar cambios" : "Crear producto"}
+      <>
+      <section className="grid gap-10 lg:grid-cols-[420px_1fr]">
+        <form onSubmit={save} className="h-fit space-y-3 rounded-3xl border border-white/10 bg-ink-900 p-6 lg:sticky lg:top-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-serif text-2xl">{editingId ? "Editar producto" : "Nuevo producto"}</h2>
+            {editingId && (
+              <button type="button" onClick={cancelEdit} className="flex items-center gap-1 text-xs text-white/50 hover:text-white">
+                <X className="h-3.5 w-3.5" /> Cancelar
               </button>
-            </form>
+            )}
+          </div>
+          <input className="input" placeholder="Nombre" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <textarea className="input" rows={3} placeholder="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <div className="grid grid-cols-2 gap-3">
+            <input className="input" type="number" min={0} placeholder="Precio COP" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+            <input className="input" type="number" min={0} placeholder="Stock" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} required />
+          </div>
+          <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+            {categories.map((c) => <option key={c} className="bg-ink-900">{c}</option>)}
+          </select>
+          <input className="input" placeholder="Material (Oro 18k · Diamante)" value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} />
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gold-400/40 p-4 text-sm text-white/60 transition hover:border-gold-300">
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 text-gold-300" />}
+            {form.image_url ? "Imagen lista ✓ (clic para cambiarla)" : "Subir imagen (ImgBB)"}
+            <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+          </label>
+          {form.image_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={form.image_url} alt="Vista previa" className="h-40 w-full rounded-xl object-cover" />
+          )}
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/70">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} /> Destacado
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Visible en la tienda
+            </label>
+          </div>
+          {msg && <p className="text-sm text-gold-300">{msg}</p>}
+          <button disabled={saving || uploading} className="btn-gold w-full disabled:opacity-50">
+            {saving ? "Guardando..." : editingId ? "Guardar cambios" : "Crear producto"}
+          </button>
+        </form>
 
-            <div className="space-y-3">
-              <h2 className="font-serif text-2xl">Productos ({products.length})</h2>
-              {products.map((p) => {
-                const paused = p.active === false;
-                return (
-                  <div
-                    key={p.id}
-                    className={`flex items-center gap-4 rounded-2xl border bg-ink-900 p-3 transition ${editingId === p.id ? "border-gold-300" : "border-white/5"
-                      } ${paused ? "opacity-60" : ""}`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.image_url} alt={p.name} className="h-16 w-16 rounded-xl object-cover" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-serif text-lg">
-                        {p.name}
-                        {paused && <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 align-middle font-sans text-[10px] uppercase tracking-widest">Pausado</span>}
-                      </p>
-                      <p className="text-xs text-white/40">{p.category} · stock {p.stock} · {formatCOP(p.price)}</p>
-                    </div>
-                    <button onClick={() => startEdit(p)} aria-label="Editar" title="Editar" className="rounded-full p-2 text-white/50 hover:text-gold-300">
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => toggleActive(p)} aria-label={paused ? "Mostrar en la tienda" : "Pausar"} title={paused ? "Mostrar en la tienda" : "Pausar (ocultar)"} className="rounded-full p-2 text-white/50 hover:text-gold-300">
-                      {paused ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                    <button onClick={() => del(p.id)} aria-label="Eliminar" title="Eliminar" className="rounded-full p-2 text-white/40 hover:text-rose-gold">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          <section>
-            <h2 className="mb-5 font-serif text-2xl">Pedidos ({orders.length})</h2>
-            <div className="space-y-3">
-              {orders.map((o) => (
-                <div key={o.id} className="rounded-2xl border border-white/5 bg-ink-900 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="font-serif text-xl">{o.customer_name}</p>
-                      <p className="text-xs text-white/40">{o.email} · {o.phone} · {o.city}, {o.address}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="gold-text font-serif text-xl">{formatCOP(o.total)}</span>
-                      <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="input !w-auto !py-2">
-                        {["pendiente", "pagado", "enviado", "entregado", "cancelado"].map((s) => <option key={s} className="bg-ink-900">{s}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-sm text-white/50">{o.items.map((i) => `${i.qty}× ${i.name}`).join(" · ")}</p>
-                  {o.notes && <p className="mt-1 text-sm italic text-white/40">“{o.notes}”</p>}
+        <div className="space-y-3">
+          <h2 className="font-serif text-2xl">Productos ({products.length})</h2>
+          {products.map((p) => {
+            const paused = p.active === false;
+            return (
+              <div
+                key={p.id}
+                className={`flex items-center gap-4 rounded-2xl border bg-ink-900 p-3 transition ${
+                  editingId === p.id ? "border-gold-300" : "border-white/5"
+                } ${paused ? "opacity-60" : ""}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.image_url} alt={p.name} className="h-16 w-16 rounded-xl object-cover" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-serif text-lg">
+                    {p.name}
+                    {paused && <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 align-middle font-sans text-[10px] uppercase tracking-widest">Pausado</span>}
+                  </p>
+                  <p className="text-xs text-white/40">{p.category} · stock {p.stock} · {formatCOP(p.price)}</p>
                 </div>
-              ))}
-              {orders.length === 0 && <p className="text-white/40">Aún no hay pedidos.</p>}
+                <button onClick={() => startEdit(p)} aria-label="Editar" title="Editar" className="rounded-full p-2 text-white/50 hover:text-gold-300">
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button onClick={() => toggleActive(p)} aria-label={paused ? "Mostrar en la tienda" : "Pausar"} title={paused ? "Mostrar en la tienda" : "Pausar (ocultar)"} className="rounded-full p-2 text-white/50 hover:text-gold-300">
+                  {paused ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+                <button onClick={() => del(p.id)} aria-label="Eliminar" title="Eliminar" className="rounded-full p-2 text-white/40 hover:text-rose-gold">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-5 font-serif text-2xl">Pedidos ({orders.length})</h2>
+        <div className="space-y-3">
+          {orders.map((o) => (
+            <div key={o.id} className="rounded-2xl border border-white/5 bg-ink-900 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-serif text-xl">{o.customer_name}</p>
+                  <p className="text-xs text-white/40">{o.email} · {o.phone} · {o.city}, {o.address}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="gold-text font-serif text-xl">{formatCOP(o.total)}</span>
+                  <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="input !w-auto !py-2">
+                    {["pendiente", "pagado", "enviado", "entregado", "cancelado"].map((s) => <option key={s} className="bg-ink-900">{s}</option>)}
+                  </select>
+                </div>
+              </div>
+              <p className="mt-3 text-sm text-white/50">{o.items.map((i) => `${i.qty}× ${i.name}`).join(" · ")}</p>
+              {o.notes && <p className="mt-1 text-sm italic text-white/40">“{o.notes}”</p>}
             </div>
-          </section>
-        </>
+          ))}
+          {orders.length === 0 && <p className="text-white/40">Aún no hay pedidos.</p>}
+        </div>
+      </section>
+      </>
       )}
+
+      {tab === "categories" && <CategoriesPanel onChanged={load} />}
 
       {tab === "users" && isRoot && <UsersPanel />}
     </div>

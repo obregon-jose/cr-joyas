@@ -1,112 +1,3 @@
-// "use client";
-
-// import { useRef, useState } from "react";
-// import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-// import { Heart, Plus } from "lucide-react";
-// import SafeImage from "./SafeImage";
-// import { Product } from "@/lib/types";
-// import { formatCOP } from "@/lib/format";
-// import { useCart } from "@/lib/cart";
-
-// type Props = { product: Product; onOpen: (p: Product) => void };
-
-// export default function ProductCard({ product, onOpen }: Props) {
-//   const { add } = useCart();
-//   const [liked, setLiked] = useState(false);
-//   const ref = useRef<HTMLDivElement>(null);
-
-//   // Efecto tilt 3D siguiendo el mouse
-//   const mx = useMotionValue(0);
-//   const my = useMotionValue(0);
-//   const rx = useSpring(useTransform(my, [-0.5, 0.5], [8, -8]), { stiffness: 200, damping: 20 });
-//   const ry = useSpring(useTransform(mx, [-0.5, 0.5], [-8, 8]), { stiffness: 200, damping: 20 });
-
-//   const onMove = (e: React.MouseEvent) => {
-//     const r = ref.current?.getBoundingClientRect();
-//     if (!r) return;
-//     mx.set((e.clientX - r.left) / r.width - 0.5);
-//     my.set((e.clientY - r.top) / r.height - 0.5);
-//   };
-//   const onLeave = () => {
-//     mx.set(0);
-//     my.set(0);
-//   };
-
-//   const soldOut = product.stock <= 0;
-
-//   return (
-//     <motion.div
-//       layout
-//       initial={{ opacity: 0, scale: 0.9, y: 30 }}
-//       animate={{ opacity: 1, scale: 1, y: 0 }}
-//       exit={{ opacity: 0, scale: 0.9 }}
-//       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-//       style={{ perspective: 900 }}
-//     >
-//       <motion.div
-//         ref={ref}
-//         onMouseMove={onMove}
-//         onMouseLeave={onLeave}
-//         style={{ rotateX: rx, rotateY: ry, transformStyle: "preserve-3d" }}
-//         className="group relative overflow-hidden rounded-3xl border border-white/5 bg-ink-800"
-//       >
-//         <button
-//           onClick={() => onOpen(product)}
-//           className="relative block aspect-[4/5] w-full overflow-hidden"
-//           aria-label={`Ver ${product.name}`}
-//         >
-//           <SafeImage
-//             src={product.image_url}
-//             alt={product.name}
-//             className="h-full w-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-110"
-//           />
-//           <div className="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-transparent to-transparent" />
-//           <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
-//         </button>
-
-//         {product.featured && (
-//           <span className="absolute left-4 top-4 rounded-full bg-gold-300 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-ink-950">
-//             Destacado
-//           </span>
-//         )}
-//         {soldOut && (
-//           <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-ink-950">
-//             Agotado
-//           </span>
-//         )}
-
-//         <motion.button
-//           whileTap={{ scale: 0.8 }}
-//           onClick={() => setLiked((v) => !v)}
-//           aria-label="Favorito"
-//           className="absolute right-4 top-4 rounded-full bg-ink-950/60 p-2.5 backdrop-blur-md transition hover:bg-ink-950"
-//         >
-//           <Heart className={`h-4 w-4 transition ${liked ? "fill-rose-gold text-rose-gold" : "text-white"}`} />
-//         </motion.button>
-
-//         <div className="flex items-end justify-between gap-3 p-5">
-//           <div className="min-w-0">
-//             <p className="text-[10px] uppercase tracking-[0.3em] text-gold-400">{product.category}</p>
-//             <h3 className="mt-1 truncate font-serif text-2xl">{product.name}</h3>
-//             <p className="mt-1 text-sm text-white/50">{product.material}</p>
-//             <p className="gold-text mt-3 font-serif text-xl">{formatCOP(product.price)}</p>
-//           </div>
-//           <motion.button
-//             whileHover={{ rotate: 90 }}
-//             whileTap={{ scale: 0.85 }}
-//             disabled={soldOut}
-//             onClick={() => add(product)}
-//             aria-label="Agregar al carrito"
-//             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gold-300 text-ink-950 transition hover:bg-gold-200 disabled:opacity-30"
-//           >
-//             <Plus className="h-5 w-5" />
-//           </motion.button>
-//         </div>
-//       </motion.div>
-//     </motion.div>
-//   );
-// }
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -198,7 +89,7 @@ export default function ProductCard({ product, onOpen }: Props) {
     >
       <div
         className="
-          relative overflow-hidden rounded-3xl
+          relative overflow-hidden rounded-2xl sm:rounded-3xl
           border border-white/[0.06]
           bg-ink-800
           transition-[border-color,box-shadow]
@@ -265,11 +156,11 @@ export default function ProductCard({ product, onOpen }: Props) {
         {product.featured && !soldOut && (
           <span
             className="
-              absolute left-4 top-4 z-10
+              absolute left-2 top-2 z-10 sm:left-4 sm:top-4
               rounded-full border border-gold-200/30
-              bg-ink-950/55 px-3 py-1.5
-              text-[9px] font-medium uppercase
-              tracking-[0.22em] text-gold-300
+              bg-ink-950/55 px-2 py-1 sm:px-3 sm:py-1.5
+              text-[8px] font-medium uppercase sm:text-[9px]
+              tracking-[0.18em] text-gold-300 sm:tracking-[0.22em]
               backdrop-blur-md
             "
           >
@@ -281,10 +172,10 @@ export default function ProductCard({ product, onOpen }: Props) {
         {soldOut && (
           <span
             className="
-              absolute left-4 top-4 z-10
-              rounded-full bg-white/90 px-3 py-1.5
-              text-[9px] font-semibold uppercase
-              tracking-[0.2em] text-ink-950
+              absolute left-2 top-2 z-10 sm:left-4 sm:top-4
+              rounded-full bg-white/90 px-2 py-1 sm:px-3 sm:py-1.5
+              text-[8px] font-semibold uppercase sm:text-[9px]
+              tracking-[0.18em] text-ink-950 sm:tracking-[0.2em]
             "
           >
             Agotado
@@ -298,8 +189,8 @@ export default function ProductCard({ product, onOpen }: Props) {
           aria-label={liked ? "Quitar de favoritos" : "Agregar a favoritos"}
           aria-pressed={mounted && liked}
           className="
-            absolute right-4 top-4 z-10
-            flex h-10 w-10 items-center justify-center
+            absolute right-2 top-2 z-10 sm:right-4 sm:top-4
+            flex h-8 w-8 items-center justify-center sm:h-10 sm:w-10
             rounded-full border border-white/10
             bg-ink-950/45 backdrop-blur-md
             transition-colors duration-300
@@ -307,22 +198,22 @@ export default function ProductCard({ product, onOpen }: Props) {
           "
         >
           <Heart
-            className={`h-4 w-4 transition-all duration-300 ${
+            className={`h-3.5 w-3.5 transition-all duration-300 sm:h-4 sm:w-4 ${
               liked ? "fill-rose-gold text-rose-gold" : "text-white/80"
             }`}
           />
         </motion.button>
 
         {/* Información del producto */}
-        <div className="flex items-end justify-between gap-3 p-5">
+        <div className="flex items-end justify-between gap-2 p-3 sm:gap-3 sm:p-5">
           <div className="min-w-0">
-            <p className="text-[9px] uppercase tracking-[0.28em] text-gold-400">
+            <p className="truncate text-[8px] uppercase tracking-[0.2em] text-gold-400 sm:text-[9px] sm:tracking-[0.28em]">
               {product.category}
             </p>
 
             <h3
               className="
-                mt-2 truncate font-serif text-2xl
+                mt-1 line-clamp-2 min-h-[2.5em] font-serif text-[15px] leading-tight sm:mt-2 sm:line-clamp-1 sm:min-h-0 sm:text-2xl
                 text-white transition-colors duration-500
                 group-hover:text-gold-200
               "
@@ -330,9 +221,11 @@ export default function ProductCard({ product, onOpen }: Props) {
               {product.name}
             </h3>
 
-            <p className="mt-1 text-sm text-white/45">{product.material}</p>
+            <p className="mt-0.5 truncate text-[11px] text-white/45 sm:mt-1 sm:text-sm">
+              {product.material}
+            </p>
 
-            <p className="gold-text mt-3 font-serif text-xl">
+            <p className="gold-text mt-1.5 font-serif text-base sm:mt-3 sm:text-xl">
               {formatCOP(product.price)}
             </p>
           </div>
@@ -351,23 +244,23 @@ export default function ProductCard({ product, onOpen }: Props) {
                   : "Agregar al carrito"
             }
             className="
-    group/cart relative
-    flex h-12 w-12 shrink-0
-    items-center justify-center
-    rounded-full border border-gold-300/70
-    bg-gold-300 text-ink-950
-    transition-colors duration-300
-    hover:border-gold-200 hover:bg-gold-200
-    hover:shadow-[0_0_24px_rgba(212,175,55,0.20)]
-    disabled:cursor-not-allowed disabled:opacity-30
-  "
+              group/cart relative
+              flex h-9 w-9 shrink-0 sm:h-12 sm:w-12
+              items-center justify-center
+              rounded-full border border-gold-300/70
+              bg-gold-300 text-ink-950
+              transition-colors duration-300
+              hover:border-gold-200 hover:bg-gold-200
+              hover:shadow-[0_0_24px_rgba(212,175,55,0.20)]
+              disabled:cursor-not-allowed disabled:opacity-30
+            "
           >
             {added ? (
-              <Check className="h-5 w-5" />
+              <Check className="h-4 w-4 sm:h-5 sm:w-5" />
             ) : (
               <>
-                <Plus className="h-5 w-5 group-hover/cart:hidden" />
-                <ShoppingCart className="hidden h-5 w-5 group-hover/cart:block" />
+                <Plus className="h-4 w-4 group-hover/cart:hidden sm:h-5 sm:w-5" />
+                <ShoppingCart className="hidden h-4 w-4 group-hover/cart:block sm:h-5 sm:w-5" />
               </>
             )}
           </motion.button>
