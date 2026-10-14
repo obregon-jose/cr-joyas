@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { CartItem, Product } from "./types";
+import { getImages } from "./images";
+import { flyToCart } from "./fly-to-cart";
 
 type CartCtx = {
   items: CartItem[];
@@ -9,7 +11,7 @@ type CartCtx = {
   count: number;
   total: number;
   setOpen: (v: boolean) => void;
-  add: (p: Product) => void;
+  add: (p: Product, from?: HTMLElement) => void;
   remove: (id: string) => void;
   setQty: (id: string, qty: number) => void;
   clear: () => void;
@@ -38,7 +40,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, [items, ready]);
 
-  const add = useCallback((p: Product) => {
+  const add = useCallback((p: Product, from?: HTMLElement) => {
+    if (from) flyToCart(getImages(p)[0] ?? "", from);
     setItems((prev) => {
       const found = prev.find((i) => i.product.id === p.id);
       if (found) {
@@ -48,7 +51,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
       return [...prev, { product: p, qty: 1 }];
     });
-    setOpen(true);
+    
   }, []);
 
   const remove = useCallback(

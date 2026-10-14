@@ -64,10 +64,10 @@ export default function ProductCard({ product, onOpen }: Props) {
   };
 
   // Agregar al carrito y mostrar una confirmación visual.
-  const handleAddToCart = () => {
+  const handleAddToCart = (e: React.MouseEvent<HTMLElement>) => {
     if (soldOut || added) return;
 
-    add(product);
+    add(product, e.currentTarget);
     setAdded(true);
 
     window.setTimeout(() => {

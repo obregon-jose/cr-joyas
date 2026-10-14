@@ -13,6 +13,7 @@ import Testimonials from "@/components/Testimonials";
 import Contact, { Footer } from "@/components/Contact";
 import CartDrawer from "@/components/CartDrawer";
 import WhatsAppFab from "@/components/WhatsAppFab";
+import FloatingCart from "@/components/FloatingCart";
 
 export default function Home() {
   const [category, setCategory] = useState("Todas");
@@ -32,6 +33,7 @@ export default function Home() {
       <Footer />
       <CartDrawer />
       <WhatsAppFab />
+      <FloatingCart />
     </main>
   );
 }

@@ -2,15 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, Loader2, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, Loader2, MessageCircle, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import SafeImage from "./SafeImage";
 import { useCart } from "@/lib/cart";
 import { formatCOP } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
+import { useSiteSettings, waLink } from "@/lib/site-settings";
+import { buildOrderMessage } from "@/lib/order-message";
 
 type Step = "cart" | "checkout" | "done";
 
 const empty = { customer_name: "", email: "", phone: "", address: "", city: "", notes: "" };
+
+type Line = { name: string; price: number; qty: number };
+type PlacedOrder = {
+  number: number | null;
+  total: number;
+  items: Line[];
+  customer: typeof empty;
+};
 
 export default function CartDrawer() {
   const { items, open, setOpen, total, remove, setQty, clear } = useCart();
@@ -18,7 +28,13 @@ export default function CartDrawer() {
   const [form, setForm] = useState(empty);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
-  const [orderRef, setOrderRef] = useState("");
+  const [placed, setPlaced] = useState<PlacedOrder | null>(null);
+  const site = useSiteSettings();
+
+  // Si el cliente vuelve a agregar piezas, se deja atrás la pantalla del pedido anterior.
+  useEffect(() => {
+    if (step === "done" && items.length > 0) setStep("cart");
+  }, [items.length, step]);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -27,35 +43,54 @@ export default function CartDrawer() {
     };
   }, [open]);
 
-  const close = () => {
-    setOpen(false);
-    setTimeout(() => {
-      if (step === "done") setStep("cart");
-    }, 400);
+  const close = () => setOpen(false);
+
+  // Guarda el pedido. El servidor (create_order, migración 007) calcula precios y total.
+  const placeOrder = async (): Promise<Omit<PlacedOrder, "customer">> => {
+    if (!supabase) {
+      await new Promise((r) => setTimeout(r, 1200)); // modo demo sin Supabase
+      return { number: null, total, items: items.map((i) => ({ name: i.product.name, price: i.product.price, qty: i.qty })) };
+    }
+    const { data, error: err } = await supabase.rpc("create_order", {
+      p_name: form.customer_name,
+      p_email: form.email,
+      p_phone: form.phone,
+      p_address: form.address,
+      p_city: form.city,
+      p_notes: form.notes,
+      p_items: items.map((i) => ({ id: String(i.product.id), qty: i.qty })),
+    });
+    if (!err && data) {
+      const d = data as { order_number: number | null; total: number; items: Line[] };
+      return { number: d.order_number, total: Number(d.total), items: d.items };
+    }
+    // La migración 007 aún no se ejecutó: se usa el método anterior.
+    const missing = err && (err.code === "PGRST202" || err.code === "42883" || /create_order|schema cache/i.test(err.message));
+    if (!missing) throw new Error(err?.message ?? "Error al registrar el pedido");
+    const lines = items.map((i) => ({ id: i.product.id, name: i.product.name, price: i.product.price, qty: i.qty }));
+    const { error: insErr } = await supabase.from("orders").insert({ ...form, items: lines, total });
+    if (insErr) throw insErr;
+    return { number: null, total, items: lines };
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSending(true);
-    const payload = {
-      ...form,
-      items: items.map((i) => ({ id: i.product.id, name: i.product.name, price: i.product.price, qty: i.qty })),
-      total,
-    };
     try {
-      if (supabase) {
-        const { error: err } = await supabase.from("orders").insert(payload);
-        if (err) throw err;
-      } else {
-        await new Promise((r) => setTimeout(r, 1200)); // modo demo sin Supabase
-      }
-      setOrderRef(Math.random().toString(36).slice(2, 8).toUpperCase());
+      const result = await placeOrder();
+      setPlaced({ ...result, customer: form });
       clear();
       setForm(empty);
       setStep("done");
-    } catch {
-      setError("No pudimos registrar tu pedido. Inténtalo de nuevo.");
+    } catch (err) {
+      const text = err instanceof Error ? err.message : "";
+      // Los mensajes del servidor (sin stock, pieza no disponible) son claros para el cliente.
+      setError(
+        /stock|disponible|carrito|Cantidad|Faltan/i.test(text)
+          ? text
+          : "No pudimos registrar tu pedido. Inténtalo de nuevo."
+      );
     } finally {
       setSending(false);
     }
@@ -171,7 +206,7 @@ export default function CartDrawer() {
                     </div>
                     <textarea rows={3} className="input resize-none" placeholder="Notas (grabado, talla, regalo...)" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
                     <p className="text-xs text-white/40">
-                      Nuestro equipo te contactará para confirmar el pago y coordinar el envío asegurado.
+                      Tu pedido queda registrado en nuestro sistema. Después podrás enviarlo también por WhatsApp (opcional) para agilizar la confirmación del pago y el envío asegurado.
                     </p>
                     {error && <p className="text-sm text-rose-gold">{error}</p>}
                   </motion.form>
@@ -196,9 +231,36 @@ export default function CartDrawer() {
                     </motion.div>
                     <h3 className="font-serif text-3xl">Pedido recibido</h3>
                     <p className="text-white/60">
-                      Tu referencia es <span className="font-semibold text-gold-300">#{orderRef}</span>. Te escribiremos muy pronto para confirmar todos los detalles.
+                      {placed?.number ? (
+                        <>
+                          Tu número de pedido es <span className="font-semibold text-gold-300">#{placed.number}</span>.{" "}
+                        </>
+                      ) : null}
+                      Ya quedó registrado. Te escribiremos muy pronto para confirmar todos los detalles.
                     </p>
-                    <button onClick={close} className="btn-ghost mt-4">Seguir explorando</button>
+                    {placed && (
+                      <div className="w-full space-y-3">
+                        <a
+                          href={waLink(
+                            site.whatsapp,
+                            buildOrderMessage({
+                              number: placed.number,
+                              brand: site.brand_name,
+                              customer: placed.customer,
+                              items: placed.items,
+                              total: placed.total,
+                            })
+                          )}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-gold w-full"
+                        >
+                          <MessageCircle className="h-4 w-4" /> Enviar pedido por WhatsApp
+                        </a>
+                        <p className="text-xs text-white/40">Opcional: agiliza la confirmación. Puedes enviarlo cuando quieras.</p>
+                      </div>
+                    )}
+                    <button onClick={close} className="btn-ghost">Seguir explorando</button>
                   </motion.div>
                 )}
               </AnimatePresence>

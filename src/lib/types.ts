@@ -38,4 +38,5 @@ export type Order = {
   total: number;
   status: string;
   created_at: string;
+  order_number?: number | null;
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Eye, EyeOff, Loader2, LogOut, Pencil, Trash2, X } from "lucide-react";
+import { Eye, EyeOff, Loader2, LogOut, Pencil, Trash2, X, MessageCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { formatCOP } from "@/lib/format";
 import { Category, Order, Product } from "@/lib/types";
@@ -10,6 +10,8 @@ import CategoriesPanel from "@/components/CategoriesPanel";
 import ImageManager from "@/components/ImageManager";
 import { getImages } from "@/lib/images";
 import SettingsPanel from "@/components/SettingsPanel";
+import { useSiteSettings, waLink } from "@/lib/site-settings";
+import { buildCustomerMessage, phoneToWa } from "@/lib/order-message";
 
 const DEFAULT_CATEGORIES = ["Anillos", "Collares", "Aretes", "Pulseras"];
 
@@ -43,6 +45,7 @@ export default function AdminPage() {
   const [isRoot, setIsRoot] = useState(false);
   const [tab, setTab] = useState<"panel" | "categories" | "settings" | "users">("panel");
   const [catRows, setCatRows] = useState<Category[]>([]);
+  const site = useSiteSettings();
 
   // Categorías activas de la tabla (migración 004); si aún no existe, las de siempre.
   const categoryNames = useMemo(
@@ -368,10 +371,19 @@ export default function AdminPage() {
             <div key={o.id} className="rounded-2xl border border-white/5 bg-ink-900 p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="font-serif text-xl">{o.customer_name}</p>
+                  <p className="font-serif text-xl">{o.customer_name ? <span className="mr-2 text-gold-300">#{o.order_number}</span> : null}</p>
                   <p className="text-xs text-white/40">{o.email} · {o.phone} · {o.city}, {o.address}</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  <a
+  href={waLink(phoneToWa(o.phone), buildCustomerMessage({ number: o.order_number, brand: site.brand_name, customer: o, items: o.items, total: o.total }))}
+  target="_blank"
+  rel="noreferrer"
+  title="Escribir al cliente por WhatsApp"
+  className="flex items-center gap-2 rounded-full border border-gold-400/30 px-4 py-2 text-xs uppercase tracking-widest text-gold-200 transition hover:border-gold-300"
+>
+  <MessageCircle className="h-4 w-4" /> WhatsApp
+</a>
                   <span className="gold-text font-serif text-xl">{formatCOP(o.total)}</span>
                   <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="input !w-auto !py-2">
                     {["pendiente", "pagado", "enviado", "entregado", "cancelado"].map((s) => <option key={s} className="bg-ink-900">{s}</option>)}
