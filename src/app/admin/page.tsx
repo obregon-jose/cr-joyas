@@ -9,6 +9,7 @@ import UsersPanel from "@/components/UsersPanel";
 import CategoriesPanel from "@/components/CategoriesPanel";
 import ImageManager from "@/components/ImageManager";
 import { getImages } from "@/lib/images";
+import SettingsPanel from "@/components/SettingsPanel";
 
 const DEFAULT_CATEGORIES = ["Anillos", "Collares", "Aretes", "Pulseras"];
 
@@ -40,7 +41,7 @@ export default function AdminPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [isRoot, setIsRoot] = useState(false);
-  const [tab, setTab] = useState<"panel" | "categories" | "users">("panel");
+  const [tab, setTab] = useState<"panel" | "categories" | "settings" | "users">("panel");
   const [catRows, setCatRows] = useState<Category[]>([]);
 
   // Categorías activas de la tabla (migración 004); si aún no existe, las de siempre.
@@ -262,7 +263,8 @@ export default function AdminPage() {
                 ["panel", "Catálogo"],
                 ["categories", "Categorías"],
                 ...(isRoot ? [["users", "Usuarios"]] : []),
-              ] as ["panel" | "categories" | "users", string][]
+                ["settings", "Configuración"],
+              ] as ["panel" | "categories" | "settings" | "users", string][]
             ).map(([t, label]) => (
               <button
                 key={t}
@@ -389,6 +391,8 @@ export default function AdminPage() {
       {tab === "categories" && <CategoriesPanel onChanged={load} />}
 
       {tab === "users" && isRoot && <UsersPanel />}
+
+      {tab === "settings" && <SettingsPanel token={token} />}
     </div>
   );
 }

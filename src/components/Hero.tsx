@@ -4,8 +4,9 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import SafeImage from "./SafeImage";
+import { parseTitle, useSiteSettings } from "@/lib/site-settings";
 
-const words = ["Brillo", "que", "cuenta", "tu", "historia"];
+
 
 const sparkles = Array.from({ length: 18 }, (_, i) => ({
   left: `${(i * 53) % 100}%`,
@@ -15,6 +16,8 @@ const sparkles = Array.from({ length: 18 }, (_, i) => ({
 }));
 
 export default function Hero() {
+  const site = useSiteSettings();
+const words = parseTitle(site.hero_title);
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   const imgY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
@@ -27,7 +30,7 @@ export default function Hero() {
     <section id="inicio" ref={ref} className="relative flex min-h-screen items-center overflow-hidden">
       <motion.div style={{ y: imgY, scale: imgScale }} className="absolute inset-0">
         <SafeImage
-          src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1800&q=80"
+          src={site.hero_image}
           alt="Joyería de lujo"
           className="h-full w-full object-cover"
         />
@@ -65,19 +68,19 @@ export default function Hero() {
           transition={{ delay: 2.4, duration: 1.4 }}
           className="eyebrow mb-8 flex items-center gap-3"
         >
-          <Sparkles className="h-4 w-4" /> Eleva tu esencia
+          <Sparkles className="h-4 w-4" /> {site.hero_eyebrow}
         </motion.p>
 
         <h1 className="max-w-4xl font-serif text-6xl font-medium leading-[0.95] sm:text-7xl md:text-8xl lg:text-9xl">
           {words.map((w, i) => (
             <span key={i} className="mr-4 inline-block overflow-hidden align-bottom">
               <motion.span
-                className={`inline-block ${i === 2 || i === 4 ? "gold-text italic" : ""}`}
+                className={`inline-block ${w.gold ? "gold-text italic" : ""}`}
                 initial={{ y: "110%", rotate: 6 }}
                 animate={{ y: 0, rotate: 0 }}
                 transition={{ delay: 2.5 + i * 0.12, duration: 1, ease: [0.22, 1, 0.36, 1] }}
               >
-                {w}
+                {w.word}
               </motion.span>
             </span>
           ))}
@@ -89,8 +92,7 @@ export default function Hero() {
           transition={{ delay: 3.3, duration: 1 }}
           className="mt-8 max-w-xl text-base leading-relaxed text-white/70 md:text-lg"
         >
-          Piezas únicas de alta joyería colombiana, forjadas a mano en oro de 18 quilates con
-          diamantes y esmeraldas seleccionadas una a una.
+          {site.hero_text}
         </motion.p>
 
         <motion.div
@@ -99,8 +101,8 @@ export default function Hero() {
           transition={{ delay: 3.5, duration: 1 }}
           className="mt-12 flex flex-wrap gap-4"
         >
-          <a href="#catalogo" className="btn-gold">Explorar catálogo</a>
-          <a href="#atelier" className="btn-ghost">Nuestro atelier</a>
+          <a href="#catalogo" className="btn-gold">{site.hero_cta1}</a>
+          <a href="#atelier" className="btn-ghost">{site.hero_cta2}</a>
         </motion.div>
       </motion.div>
 

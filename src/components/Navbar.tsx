@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useScroll, useSpring } from "framer-motion";
 import { Gem, Menu, ShoppingBag, X } from "lucide-react";
 import { useCart } from "@/lib/cart";
+import { useSiteSettings } from "@/lib/site-settings";
 
 const links = [
   { href: "#colecciones", label: "Colecciones" },
@@ -20,6 +21,7 @@ export default function Navbar() {
   const [menu, setMenu] = useState(false);
   const { scrollYProgress } = useScroll();
   const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 25 });
+  const site = useSiteSettings();
 
   useEffect(() => {
     let last = 0;
@@ -46,7 +48,7 @@ export default function Navbar() {
         <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <a href="#inicio" className="group flex items-center gap-3">
             <Gem className="h-6 w-6 text-gold-300 transition-transform duration-700 group-hover:rotate-[360deg]" strokeWidth={1.2} />
-            <span className="gold-text font-serif text-2xl tracking-[0.3em]">CR JOYAS</span>
+            <span className="gold-text font-serif text-2xl tracking-[0.3em]">{site.brand_name.toUpperCase()}</span>
           </a>
 
           <ul className="hidden items-center gap-10 lg:flex">
