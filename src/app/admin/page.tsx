@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Eye, EyeOff, Loader2, LogOut, Pencil, Trash2, Upload, X } from "lucide-react";
+import { Eye, EyeOff, Loader2, LogOut, Pencil, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { formatCOP } from "@/lib/format";
 import { Category, Order, Product } from "@/lib/types";
 import UsersPanel from "@/components/UsersPanel";
 import CategoriesPanel from "@/components/CategoriesPanel";
+import ImageManager from "@/components/ImageManager";
+import { getImages } from "@/lib/images";
 
 const DEFAULT_CATEGORIES = ["Anillos", "Collares", "Aretes", "Pulseras"];
 
@@ -16,7 +18,7 @@ const blank = {
   price: "",
   category: "Anillos",
   material: "",
-  image_url: "",
+  images: [] as string[],
   stock: "1",
   featured: false,
   active: true,
@@ -36,7 +38,6 @@ export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [form, setForm] = useState<Form>(blank);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isRoot, setIsRoot] = useState(false);
   const [tab, setTab] = useState<"panel" | "categories" | "users">("panel");
@@ -174,17 +175,6 @@ export default function AdminPage() {
     );
   }
 
-  const upload = async (file: File) => {
-    setUploading(true);
-    setMsg("");
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/upload", { method: "POST", body: fd, headers: { Authorization: `Bearer ${token}` } });
-    const json = await res.json();
-    setUploading(false);
-    if (!res.ok) return setMsg(json.error ?? "Error al subir la imagen");
-    setForm((f) => ({ ...f, image_url: json.url }));
-  };
 
   const startEdit = (p: Product) => {
     setEditingId(p.id);
@@ -194,7 +184,7 @@ export default function AdminPage() {
       price: String(p.price),
       category: p.category,
       material: p.material ?? "",
-      image_url: p.image_url,
+      images: getImages(p),
       stock: String(p.stock),
       featured: p.featured,
       active: p.active !== false,
@@ -211,7 +201,7 @@ export default function AdminPage() {
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.image_url) return setMsg("Sube una imagen primero");
+    if (form.images.length === 0) return setMsg("Sube al menos una imagen");
     setSaving(true);
     const payload = {
       name: form.name.trim(),
@@ -219,7 +209,8 @@ export default function AdminPage() {
       price: Number(form.price),
       category: form.category,
       material: form.material,
-      image_url: form.image_url,
+      image_url: form.images[0], // portada
+      images: form.images,
       stock: Number(form.stock),
       featured: form.featured,
       active: form.active,
@@ -229,8 +220,12 @@ export default function AdminPage() {
       : await supabase!.from("products").insert(payload);
     setSaving(false);
     if (error) {
-      const missingColumn = /active/i.test(error.message) && /column/i.test(error.message);
-      return setMsg(missingColumn ? "Falta ejecutar la migración 001 en Supabase (columna active)." : error.message);
+      const missingColumn = /(active|images)/i.test(error.message) && /column/i.test(error.message);
+      return setMsg(
+        missingColumn
+          ? "Falta ejecutar una migración en Supabase (001 columna active, 005 columna images)."
+          : error.message
+      );
     }
     setMsg(editingId ? "Cambios guardados ✓" : "Producto creado ✓");
     setEditingId(null);
@@ -313,15 +308,8 @@ export default function AdminPage() {
             {categories.map((c) => <option key={c} className="bg-ink-900">{c}</option>)}
           </select>
           <input className="input" placeholder="Material (Oro 18k · Diamante)" value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} />
-          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gold-400/40 p-4 text-sm text-white/60 transition hover:border-gold-300">
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 text-gold-300" />}
-            {form.image_url ? "Imagen lista ✓ (clic para cambiarla)" : "Subir imagen (ImgBB)"}
-            <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-          </label>
-          {form.image_url && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={form.image_url} alt="Vista previa" className="h-40 w-full rounded-xl object-cover" />
-          )}
+          <ImageManager images={form.images} onChange={(images) => setForm((f) => ({ ...f, images }))} token={token} />
+          
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/70">
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} /> Destacado
@@ -331,7 +319,7 @@ export default function AdminPage() {
             </label>
           </div>
           {msg && <p className="text-sm text-gold-300">{msg}</p>}
-          <button disabled={saving || uploading} className="btn-gold w-full disabled:opacity-50">
+          <button disabled={saving} className="btn-gold w-full disabled:opacity-50">
             {saving ? "Guardando..." : editingId ? "Guardar cambios" : "Crear producto"}
           </button>
         </form>

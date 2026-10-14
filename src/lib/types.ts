@@ -6,6 +6,7 @@ export type Product = {
   category: string;
   material: string;
   image_url: string;
+  images?: string[];
   featured: boolean;
   stock: number;
   active?: boolean; // false = pausado, no se muestra en la tienda

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Heart, Plus, ShoppingCart, Check } from "lucide-react";
+import { Heart, Plus, ShoppingCart, Check, Eye } from "lucide-react";
+import { getImages } from "@/lib/images";
 
 import SafeImage from "./SafeImage";
 import { Product } from "@/lib/types";
@@ -140,6 +141,15 @@ export default function ProductCard({ product, onOpen }: Props) {
               group-hover:translate-x-[150%]
             "
           />
+
+          {getImages(product).length > 1 && (
+  <span
+    aria-hidden
+    className="pointer-events-none absolute left-1/2 top-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 scale-90 items-center justify-center rounded-full bg-ink-950/30 text-white/80 opacity-0 backdrop-blur-[2px] transition duration-500 group-hover:scale-100 group-hover:opacity-100 group-active:scale-100 group-active:opacity-100 sm:h-12 sm:w-12"
+  >
+    <Eye className="h-5 w-5 sm:h-6 sm:w-6" />
+  </span>
+)}
 
           {/* Brillo ambiental */}
           <div

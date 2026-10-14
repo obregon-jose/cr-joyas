@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import { demoProducts } from "./demo-data";
 import { Product } from "./types";
+import { getImages } from "./images";
 
 export function useProducts() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -27,7 +28,9 @@ export function useProducts() {
       if (!alive) return;
       // Los productos pausados (active = false) nunca se muestran en la tienda,
       // ni siquiera cuando el admin tiene la sesión abierta.
-      const visible = ((data as Product[] | null) ?? []).filter((p) => p.active !== false);
+      const visible = ((data as Product[] | null) ?? [])
+  .filter((p) => p.active !== false)
+  .map((p) => ({ ...p, images: getImages(p) }));
       setProducts(error || visible.length === 0 ? demoProducts : visible);
       setLoading(false);
     }

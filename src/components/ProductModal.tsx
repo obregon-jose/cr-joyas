@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ShieldCheck, ShoppingBag, Truck, X } from "lucide-react";
-import SafeImage from "./SafeImage";
+import ProductGallery from "./ProductGallery";
+import { getImages } from "@/lib/images";
 import { Product } from "@/lib/types";
 import { formatCOP } from "@/lib/format";
 import { useCart } from "@/lib/cart";
@@ -39,7 +40,7 @@ export default function ProductModal({ product, onClose }: Props) {
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: 60, scale: 0.95, opacity: 0 }}
             transition={{ type: "spring", damping: 26, stiffness: 240 }}
-            className="relative grid max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-gold-400/20 bg-ink-900 md:grid-cols-2"
+            className="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-y-auto rounded-3xl border border-gold-400/20 bg-ink-900 md:grid md:grid-cols-2"
           >
             <button
               onClick={onClose}
@@ -49,22 +50,15 @@ export default function ProductModal({ product, onClose }: Props) {
               <X className="h-5 w-5" />
             </button>
 
-            <div className="relative aspect-square overflow-hidden md:aspect-auto md:min-h-[540px]">
-              <motion.div
-                initial={{ scale: 1.25 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
-                className="h-full w-full"
-              >
-                <SafeImage src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
-              </motion.div>
+            <div className="relative h-[40vh] min-h-[260px] shrink-0 overflow-hidden md:h-auto md:min-h-[540px]">
+              <ProductGallery key={product.id} images={getImages(product)} alt={product.name} />
             </div>
 
-            <div className="flex flex-col justify-center gap-6 p-8 md:p-12">
+            <div className="flex shrink-0 flex-col justify-center gap-4 p-6 md:gap-6 md:p-12">
               <motion.p initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="eyebrow">
                 {product.category}
               </motion.p>
-              <motion.h3 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="font-serif text-4xl leading-tight md:text-5xl">
+              <motion.h3 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="font-serif text-3xl leading-tight md:text-5xl">
                 {product.name}
               </motion.h3>
               <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="leading-relaxed text-white/60">
