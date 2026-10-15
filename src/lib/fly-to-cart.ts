@@ -1,4 +1,12 @@
 export const FLY_EVENT = "cart-fly";
+export const ALERT_EVENT = "cart-alert";
+
+/** Muestra un aviso breve (toast) sobre el carrito, ej. "no hay más stock". */
+export function cartAlert(message: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<string>(ALERT_EVENT, { detail: message }));
+}
+
 
 export type FlyDetail = { src: string; x: number; y: number };
 

@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { CartItem, Product } from "./types";
 import { getImages } from "./images";
-import { flyToCart } from "./fly-to-cart";
+import { cartAlert, flyToCart } from "./fly-to-cart";
 
 type CartCtx = {
   items: CartItem[];
@@ -11,14 +11,14 @@ type CartCtx = {
   count: number;
   total: number;
   setOpen: (v: boolean) => void;
-  add: (p: Product, from?: HTMLElement) => void;
+  add: (p: Product, from?: HTMLElement) => boolean;
   remove: (id: string) => void;
   setQty: (id: string, qty: number) => void;
   clear: () => void;
 };
 
 const Ctx = createContext<CartCtx | null>(null);
-const KEY = "crjoyas-cart-v1";
+const KEY = "aurelia-cart-v1";
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
@@ -40,34 +40,61 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, [items, ready]);
 
-  const add = useCallback((p: Product, from?: HTMLElement) => {
-    if (from) flyToCart(getImages(p)[0] ?? "", from);
-    setItems((prev) => {
-      const found = prev.find((i) => i.product.id === p.id);
-      if (found) {
-        return prev.map((i) =>
-          i.product.id === p.id ? { ...i, qty: Math.min(i.qty + 1, Math.max(p.stock, 1)) } : i
-        );
-      }
-      return [...prev, { product: p, qty: 1 }];
-    });
-    
+  // Referencia al carrito actual: permite validar el stock al instante, sin esperar al render.
+  const itemsRef = useRef<CartItem[]>([]);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  const commit = useCallback((next: CartItem[]) => {
+    itemsRef.current = next;
+    setItems(next);
   }, []);
 
-  const remove = useCallback(
-    (id: string) => setItems((prev) => prev.filter((i) => i.product.id !== id)),
-    []
+  const stockMessage = (p: Product) =>
+    p.stock <= 0
+      ? `"${p.name}" está agotado.`
+      : `Solo hay ${p.stock} ${p.stock === 1 ? "unidad" : "unidades"} de "${p.name}" y ya ${p.stock === 1 ? "la tienes" : "las tienes"} en tu carrito.`;
+
+  // Devuelve true si se agregó; false si ya no hay más unidades disponibles.
+  const add = useCallback(
+    (p: Product, from?: HTMLElement): boolean => {
+      const current = itemsRef.current;
+      const found = current.find((i) => i.product.id === p.id);
+      if ((found?.qty ?? 0) >= p.stock) {
+        cartAlert(stockMessage(p));
+        return false;
+      }
+      if (from) flyToCart(getImages(p)[0] ?? "", from);
+      commit(
+        found
+          ? current.map((i) => (i.product.id === p.id ? { ...i, qty: i.qty + 1 } : i))
+          : [...current, { product: p, qty: 1 }]
+      );
+      return true;
+    },
+    [commit]
   );
 
-  const setQty = useCallback((id: string, qty: number) => {
-    setItems((prev) =>
-      prev
-        .map((i) => (i.product.id === id ? { ...i, qty: Math.min(qty, Math.max(i.product.stock, 1)) } : i))
-        .filter((i) => i.qty > 0)
-    );
-  }, []);
+  const remove = useCallback(
+    (id: string) => commit(itemsRef.current.filter((i) => i.product.id !== id)),
+    [commit]
+  );
 
-  const clear = useCallback(() => setItems([]), []);
+  const setQty = useCallback(
+    (id: string, qty: number) => {
+      const target = itemsRef.current.find((i) => i.product.id === id);
+      if (target && qty > target.product.stock) cartAlert(stockMessage(target.product));
+      commit(
+        itemsRef.current
+          .map((i) => (i.product.id === id ? { ...i, qty: Math.min(qty, i.product.stock) } : i))
+          .filter((i) => i.qty > 0)
+      );
+    },
+    [commit]
+  );
+
+  const clear = useCallback(() => commit([]), [commit]);
 
   const value = useMemo<CartCtx>(
     () => ({

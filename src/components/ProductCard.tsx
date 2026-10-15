@@ -67,8 +67,8 @@ export default function ProductCard({ product, onOpen }: Props) {
   const handleAddToCart = (e: React.MouseEvent<HTMLElement>) => {
     if (soldOut || added) return;
 
-    add(product, e.currentTarget);
-    setAdded(true);
+    if (!add(product, e.currentTarget)) return;
+setAdded(true);
 
     window.setTimeout(() => {
       setAdded(false);

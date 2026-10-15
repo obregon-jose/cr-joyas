@@ -83,7 +83,7 @@ export default function ProductModal({ product, onClose }: Props) {
                 transition={{ delay: 0.45 }}
                 disabled={product.stock <= 0}
                 onClick={(e) => {
-                  add(product, e.currentTarget);
+                  if (!add(product, e.currentTarget)) return;
                   onClose();
                 }}
                 className="btn-gold disabled:opacity-40"

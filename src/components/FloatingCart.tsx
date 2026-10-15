@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion, useAnimation } from "framer-motion";
-import { ShoppingBag } from "lucide-react";
+import { AnimatePresence, motion, useAnimation } from "framer-motion";
+import { AlertCircle, ShoppingBag } from "lucide-react";
 import { useCart } from "@/lib/cart";
-import { FLY_EVENT, FlyDetail } from "@/lib/fly-to-cart";
+import { ALERT_EVENT, FLY_EVENT, FlyDetail } from "@/lib/fly-to-cart";
 
 type Flight = { id: number; src: string; from: { x: number; y: number }; to: { x: number; y: number } };
 
@@ -19,6 +19,22 @@ export default function FloatingCart() {
   const idRef = useRef(0);
   const controls = useAnimation();
   const [flights, setFlights] = useState<Flight[]>([]);
+  const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
+
+  // Aviso breve (ej. "solo hay 3 unidades"); desaparece solo.
+  useEffect(() => {
+    let timer: number | undefined;
+    const onAlert = (e: Event) => {
+      window.clearTimeout(timer);
+      setToast({ id: ++idRef.current, text: (e as CustomEvent<string>).detail });
+      timer = window.setTimeout(() => setToast(null), 3800);
+    };
+    window.addEventListener(ALERT_EVENT, onAlert);
+    return () => {
+      window.removeEventListener(ALERT_EVENT, onAlert);
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   useEffect(() => {
     const onFly = (e: Event) => {
@@ -72,6 +88,22 @@ export default function FloatingCart() {
           )}
         </motion.span>
       </motion.button>
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key={toast.id}
+            role="alert"
+            initial={{ opacity: 0, y: 20, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12 }}
+            className="fixed inset-x-4 bottom-24 z-[95] mx-auto flex max-w-sm items-start gap-3 rounded-2xl border border-gold-400/40 bg-ink-900/95 p-4 text-sm text-white/85 shadow-[0_10px_40px_rgba(0,0,0,0.5)] backdrop-blur"
+          >
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-gold-300" />
+            <p>{toast.text}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {flights.map((f) => {
         const midX = (f.from.x + f.to.x) / 2;
