@@ -12,6 +12,7 @@ import { getImages } from "@/lib/images";
 import SettingsPanel from "@/components/SettingsPanel";
 import { useSiteSettings, waLink } from "@/lib/site-settings";
 import { buildCustomerMessage, phoneToWa } from "@/lib/order-message";
+import { deleteImages } from "@/lib/delete-images";
 
 const DEFAULT_CATEGORIES = ["Anillos", "Collares", "Aretes", "Pulseras"];
 
@@ -41,6 +42,7 @@ export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [form, setForm] = useState<Form>(blank);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [originalImages, setOriginalImages] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [isRoot, setIsRoot] = useState(false);
   const [tab, setTab] = useState<"panel" | "categories" | "settings" | "users">("panel");
@@ -182,6 +184,7 @@ export default function AdminPage() {
 
   const startEdit = (p: Product) => {
     setEditingId(p.id);
+    setOriginalImages(getImages(p));
     setForm({
       name: p.name,
       description: p.description ?? "",
@@ -198,6 +201,8 @@ export default function AdminPage() {
   };
 
   const cancelEdit = () => {
+    deleteImages(form.images.filter((u) => !originalImages.includes(u)), token);
+setOriginalImages([]);
     setEditingId(null);
     setForm(blank);
     setMsg("");
@@ -231,6 +236,8 @@ export default function AdminPage() {
           : error.message
       );
     }
+    deleteImages(originalImages.filter((u) => !form.images.includes(u)), token);
+setOriginalImages([]);
     setMsg(editingId ? "Cambios guardados ✓" : "Producto creado ✓");
     setEditingId(null);
     setForm(blank);
@@ -245,8 +252,11 @@ export default function AdminPage() {
 
   const del = async (id: string) => {
     if (!confirm("¿Eliminar este producto definitivamente? Si solo quieres ocultarlo, usa el ojo (pausar).")) return;
-    await supabase!.from("products").delete().eq("id", id);
-    if (editingId === id) cancelEdit();
+    const removed = products.find((p) => p.id === id);
+const { error: delErr } = await supabase!.from("products").delete().eq("id", id);
+if (delErr) return setMsg(delErr.message);
+if (removed) deleteImages(getImages(removed), token);
+if (editingId === id) { setOriginalImages([]); setEditingId(null); setForm(blank); }
     load();
   };
 
@@ -313,7 +323,7 @@ export default function AdminPage() {
             {categories.map((c) => <option key={c} className="bg-ink-900">{c}</option>)}
           </select>
           <input className="input" placeholder="Material (Oro 18k · Diamante)" value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} />
-          <ImageManager images={form.images} onChange={(images) => setForm((f) => ({ ...f, images }))} token={token} />
+          <ImageManager images={form.images} onChange={(images) => setForm((f) => ({ ...f, images }))} onDiscard={(url) => { if (!originalImages.includes(url)) deleteImages([url], token); }} token={token} />
           
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/70">
             <label className="flex items-center gap-2">

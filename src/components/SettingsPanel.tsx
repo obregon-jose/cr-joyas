@@ -5,8 +5,10 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import ImageManager from "./ImageManager";
 import { DEFAULT_SETTINGS, SiteSettings, loadSettings, publishSettings } from "@/lib/site-settings";
+import { deleteImages } from "@/lib/delete-images";
 
 type Field = { key: keyof SiteSettings; label: string; hint?: string; long?: boolean };
+
 
 const SECTIONS: { title: string; fields: Field[] }[] = [
   {
@@ -44,10 +46,12 @@ export default function SettingsPanel({ token }: { token: string | null }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [savedHero, setSavedHero] = useState("");
 
   useEffect(() => {
     loadSettings(true).then((s) => {
       setForm(s);
+      setSavedHero(s.hero_image);
       setLoading(false);
     });
   }, []);
@@ -68,6 +72,8 @@ export default function SettingsPanel({ token }: { token: string | null }) {
           : error.message
       );
     }
+    if (savedHero && savedHero !== form.hero_image) deleteImages([savedHero], token);
+setSavedHero(form.hero_image);
     publishSettings(form);
     setMsg("Configuración guardada ✓ Ya se ve en el sitio.");
   };

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
@@ -13,12 +13,13 @@ export async function POST(req: NextRequest) {
       return fail("Falta IMGBB_API_KEY en .env.local (reinicia npm run dev después de agregarla)", 500);
     }
 
+    let sb: SupabaseClient | null = null;
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (url && anon) {
       const token = req.headers.get("authorization")?.replace("Bearer ", "");
       if (!token) return fail("No autorizado: inicia sesión en /admin", 401);
-      const sb = createClient(url, anon, { global: { headers: { Authorization: `Bearer ${token}` } } });
+      sb = createClient(url, anon, { global: { headers: { Authorization: `Bearer ${token}` } } });
       const { data, error } = await sb.auth.getUser(token);
       if (error || !data.user) return fail("Sesión inválida, vuelve a iniciar sesión", 401);
 
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
     });
 
     const text = await res.text();
-    let json: { data?: { url?: string }; error?: { message?: string } } = {};
+    let json: { data?: { url?: string; delete_url?: string }; error?: { message?: string } } = {};
     try {
       json = JSON.parse(text);
     } catch {
@@ -60,6 +61,13 @@ export async function POST(req: NextRequest) {
     if (!res.ok || !json.data?.url) {
       console.error("[upload] ImgBB rechazó la subida:", res.status, json.error);
       return fail(json.error?.message ?? `ImgBB rechazó la imagen (${res.status})`, 502);
+    }
+
+    // Se guarda en privado el enlace de borrado (migración 008) para poder eliminar la imagen después.
+    // Si la tabla aún no existe, simplemente no se guarda: la subida funciona igual.
+    if (sb && json.data.delete_url) {
+      const { error: saveErr } = await sb.from("image_deletes").upsert({ url: json.data.url, delete_url: json.data.delete_url });
+      if (saveErr) console.warn("[upload] No se guardó el enlace de borrado (¿migración 008?):", saveErr.message);
     }
 
     return NextResponse.json({ url: json.data.url });

@@ -8,41 +8,97 @@ type Props = {
   onChange: (images: string[]) => void;
   token: string | null;
   max?: number;
+  /** Se llama cuando el admin quita una imagen de la lista (para borrarla de ImgBB si ya no se usa). */
+  onDiscard?: (url: string) => void;
 };
 
-/** Sube varias imágenes (ImgBB vía /api/upload), reordena y elimina. La primera es la portada. */
-export default function ImageManager({ images, onChange, token, max = 8 }: Props) {
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+const MAX_SIDE = 1800; // lado máximo en píxeles
+const QUALITY = 0.88;
 
-  const upload = async (files: FileList) => {
-    setError("");
-    setUploading(true);
-    const next = [...images];
-    for (const file of Array.from(files)) {
-      if (next.length >= max) {
-        setError(`Máximo ${max} imágenes por producto.`);
-        break;
-      }
+/** Reduce fotos pesadas (celular/cámara) antes de subirlas: menos peso, subidas más rápidas y sin errores de tamaño. */
+async function shrink(file: File): Promise<File> {
+  if (!file.type.startsWith("image/") || /gif|svg/.test(file.type)) return file;
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * scale);
+    const h = Math.round(bmp.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.fillStyle = "#fff"; // los PNG con transparencia pasan a JPEG sobre fondo blanco
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(bmp, 0, 0, w, h);
+    bmp.close?.();
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", QUALITY));
+    if (!blob || blob.size >= file.size) return file; // si no mejora, se sube el original
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Sube un archivo con hasta 3 intentos si falla la red o el servidor responde 5xx/429. */
+async function uploadOne(file: File, token: string | null): Promise<string> {
+  let lastError = "Error desconocido";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await wait(900 * attempt);
+    try {
       const fd = new FormData();
       fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd, headers: { Authorization: `Bearer ${token}` } });
+      const text = await res.text();
+      let json: { url?: string; error?: string } = {};
       try {
-        const res = await fetch("/api/upload", { method: "POST", body: fd, headers: { Authorization: `Bearer ${token}` } });
-        const json = await res.json();
-        if (!res.ok) {
-          setError(json.error ?? "Error al subir la imagen");
-          break;
-        }
-        next.push(json.url);
-        onChange([...next]);
-      } catch {
-        setError("No se pudo subir la imagen");
-        break;
-      }
+        json = JSON.parse(text);
+      } catch {}
+      if (res.ok && json.url) return json.url;
+      lastError =
+        json.error ??
+        (res.status === 413 ? "La imagen es demasiado grande para el servidor" : `El servidor respondió con error ${res.status}`);
+      if (res.status < 500 && res.status !== 429) break; // errores del usuario: no tiene sentido reintentar
+    } catch {
+      lastError = "Sin conexión con el servidor";
     }
-    setUploading(false);
+  }
+  throw new Error(lastError);
+}
+
+/** Sube varias imágenes (ImgBB vía /api/upload), reordena y elimina. La primera es la portada. */
+export default function ImageManager({ images, onChange, token, max = 8, onDiscard }: Props) {
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const uploading = progress !== null;
+
+  const upload = async (list: FileList) => {
+    const all = Array.from(list); // se copia antes de limpiar el input
     if (inputRef.current) inputRef.current.value = "";
+    const room = Math.max(0, max - images.length);
+    const files = all.slice(0, room);
+    const problems: string[] = [];
+    if (all.length > room) problems.push(`Máximo ${max} imágenes: se omitieron ${all.length - room}.`);
+
+    setErrors([]);
+    setProgress({ done: 0, total: files.length });
+    const next = [...images];
+    for (let i = 0; i < files.length; i++) {
+      const original = files[i];
+      try {
+        const url = await uploadOne(await shrink(original), token);
+        next.push(url);
+        onChange([...next]);
+      } catch (e) {
+        problems.push(`${original.name}: ${e instanceof Error ? e.message : "no se pudo subir"}`);
+      }
+      setProgress({ done: i + 1, total: files.length });
+    }
+    setProgress(null);
+    setErrors(problems);
   };
 
   const move = (from: number, to: number) => {
@@ -53,7 +109,10 @@ export default function ImageManager({ images, onChange, token, max = 8 }: Props
     onChange(next);
   };
 
-  const remove = (i: number) => onChange(images.filter((_, idx) => idx !== i));
+  const remove = (i: number) => {
+    onDiscard?.(images[i]);
+    onChange(images.filter((_, idx) => idx !== i));
+  };
 
   const btn = "rounded-full bg-ink-950/80 p-1.5 text-white/80 backdrop-blur transition hover:bg-ink-950 hover:text-gold-300 disabled:opacity-30";
 
@@ -61,9 +120,11 @@ export default function ImageManager({ images, onChange, token, max = 8 }: Props
     <div className="space-y-3">
       <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gold-400/40 p-4 text-sm text-white/60 transition hover:border-gold-300">
         {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 text-gold-300" />}
-        {images.length === 0
-          ? "Subir imágenes (puedes elegir varias)"
-          : `${images.length}/${max} imágenes · clic para agregar más`}
+        {uploading
+          ? `Subiendo ${Math.min(progress!.done + 1, progress!.total)} de ${progress!.total}…`
+          : images.length === 0
+            ? "Subir imágenes (puedes elegir varias)"
+            : `${images.length}/${max} imágenes · clic para agregar más`}
         <input
           ref={inputRef}
           type="file"
@@ -106,7 +167,13 @@ export default function ImageManager({ images, onChange, token, max = 8 }: Props
           ))}
         </div>
       )}
-      {error && <p className="text-sm text-rose-300">{error}</p>}
+      {errors.length > 0 && (
+        <ul className="space-y-1 text-sm text-rose-300">
+          {errors.map((e) => (
+            <li key={e}>{e}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
