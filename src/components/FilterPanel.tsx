@@ -248,6 +248,12 @@ export default function FilterPanel({
                   on={filters.onlyFeatured}
                   onChange={(v) => onChange({ ...filters, onlyFeatured: v })}
                 />
+                <Toggle
+                  label="Solo en oferta"
+                  desc="Piezas con descuento vigente"
+                  on={filters.onlyOnSale}
+                  onChange={(v) => onChange({ ...filters, onlyOnSale: v })}
+                />
               </section>
             </div>
 

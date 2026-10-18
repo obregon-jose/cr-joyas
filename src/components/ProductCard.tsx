@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Heart, Plus, ShoppingCart, Check, Eye } from "lucide-react";
-import { getImages } from "@/lib/images";
 
 import SafeImage from "./SafeImage";
 import { Product } from "@/lib/types";
-import { formatCOP } from "@/lib/format";
 import { useCart } from "@/lib/cart";
+import { getImages } from "@/lib/images";
+import Price, { DiscountBadge } from "./Price";
+import { onSale } from "@/lib/promo";
 
 type Props = {
   product: Product;
@@ -67,8 +68,9 @@ export default function ProductCard({ product, onOpen }: Props) {
   const handleAddToCart = (e: React.MouseEvent<HTMLElement>) => {
     if (soldOut || added) return;
 
+    // Si ya tiene en el carrito todas las unidades, no se agrega y se muestra el aviso.
     if (!add(product, e.currentTarget)) return;
-setAdded(true);
+    setAdded(true);
 
     window.setTimeout(() => {
       setAdded(false);
@@ -129,6 +131,16 @@ setAdded(true);
             "
           />
 
+          {/* Ojo: indica que hay más imágenes para ver */}
+          {getImages(product).length > 1 && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute left-1/2 top-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 scale-90 items-center justify-center rounded-full bg-ink-950/30 text-white/80 opacity-0 backdrop-blur-[2px] transition duration-500 group-hover:scale-100 group-hover:opacity-100 group-active:scale-100 group-active:opacity-100 sm:h-12 sm:w-12"
+            >
+              <Eye className="h-5 w-5 sm:h-6 sm:w-6" />
+            </span>
+          )}
+
           {/* Reflejo dorado */}
           <div
             className="
@@ -142,15 +154,6 @@ setAdded(true);
             "
           />
 
-          {getImages(product).length > 1 && (
-  <span
-    aria-hidden
-    className="pointer-events-none absolute left-1/2 top-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 scale-90 items-center justify-center rounded-full bg-ink-950/30 text-white/80 opacity-0 backdrop-blur-[2px] transition duration-500 group-hover:scale-100 group-hover:opacity-100 group-active:scale-100 group-active:opacity-100 sm:h-12 sm:w-12"
-  >
-    <Eye className="h-5 w-5 sm:h-6 sm:w-6" />
-  </span>
-)}
-
           {/* Brillo ambiental */}
           <div
             className="
@@ -162,20 +165,24 @@ setAdded(true);
           />
         </button>
 
-        {/* Etiqueta de producto destacado */}
-        {product.featured && !soldOut && (
-          <span
-            className="
-              absolute left-2 top-2 z-10 sm:left-4 sm:top-4
-              rounded-full border border-gold-200/30
-              bg-ink-950/55 px-2 py-1 sm:px-3 sm:py-1.5
-              text-[8px] font-medium uppercase sm:text-[9px]
-              tracking-[0.18em] text-gold-300 sm:tracking-[0.22em]
-              backdrop-blur-md
-            "
-          >
-            Destacado
-          </span>
+        {/* Etiquetas: descuento y destacado */}
+        {!soldOut && (onSale(product) || product.featured) && (
+          <div className="absolute left-2 top-2 z-10 flex flex-col items-start gap-1 sm:left-4 sm:top-4 sm:gap-1.5">
+            <DiscountBadge product={product} />
+            {product.featured && (
+              <span
+                className="
+                  rounded-full border border-gold-200/30
+                  bg-ink-950/55 px-2 py-1 sm:px-3 sm:py-1.5
+                  text-[8px] font-medium uppercase sm:text-[9px]
+                  tracking-[0.18em] text-gold-300 sm:tracking-[0.22em]
+                  backdrop-blur-md
+                "
+              >
+                Destacado
+              </span>
+            )}
+          </div>
         )}
 
         {/* Etiqueta de agotado */}
@@ -235,9 +242,9 @@ setAdded(true);
               {product.material}
             </p>
 
-            <p className="gold-text mt-1.5 font-serif text-base sm:mt-3 sm:text-xl">
-              {formatCOP(product.price)}
-            </p>
+            <div className="mt-1.5 sm:mt-3">
+              <Price product={product} className="text-base sm:text-xl" />
+            </div>
           </div>
 
           {/* Botón del carrito con transición plana */}

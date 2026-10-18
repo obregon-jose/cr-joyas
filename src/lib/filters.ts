@@ -1,4 +1,5 @@
 import { Product } from "./types";
+import { finalPrice, onSale } from "./promo";
 
 export type SortKey = "relevance" | "newest" | "price_asc" | "price_desc" | "name";
 
@@ -8,6 +9,7 @@ export type Filters = {
   materials: string[]; // coincide con cualquiera de los seleccionados
   onlyAvailable: boolean;
   onlyFeatured: boolean;
+  onlyOnSale: boolean;
   sort: SortKey;
 };
 
@@ -27,13 +29,14 @@ export const defaultFilters = (): Filters => ({
   materials: [],
   onlyAvailable: false,
   onlyFeatured: false,
+  onlyOnSale: false,
   sort: "relevance",
 });
 
 // Rango de precios disponible, redondeado al paso del slider.
 export function getBounds(products: Product[]) {
   if (!products.length) return { min: 0, max: 0 };
-  const prices = products.map((p) => p.price);
+  const prices = products.map((p) => finalPrice(p));
   const min = Math.floor(Math.min(...prices) / PRICE_STEP) * PRICE_STEP;
   const max = Math.ceil(Math.max(...prices) / PRICE_STEP) * PRICE_STEP;
   return { min, max: Math.max(max, min + PRICE_STEP) };
@@ -61,7 +64,8 @@ export function countActive(f: Filters): number {
     (f.minPrice !== null || f.maxPrice !== null ? 1 : 0) +
     f.materials.length +
     (f.onlyAvailable ? 1 : 0) +
-    (f.onlyFeatured ? 1 : 0)
+    (f.onlyFeatured ? 1 : 0) +
+    (f.onlyOnSale ? 1 : 0)
   );
 }
 
@@ -70,7 +74,9 @@ export function applyFilters(products: Product[], f: Filters): Product[] {
   const hi = f.maxPrice ?? Infinity;
 
   const list = products.filter((p) => {
-    if (p.price < lo || p.price > hi) return false;
+    const price = finalPrice(p);
+    if (price < lo || price > hi) return false;
+    if (f.onlyOnSale && !onSale(p)) return false;
     if (f.onlyAvailable && p.stock <= 0) return false;
     if (f.onlyFeatured && !p.featured) return false;
     if (f.materials.length) {
@@ -83,9 +89,9 @@ export function applyFilters(products: Product[], f: Filters): Product[] {
   const time = (p: Product) => (p.created_at ? new Date(p.created_at).getTime() : 0);
   switch (f.sort) {
     case "price_asc":
-      return list.sort((a, b) => a.price - b.price);
+      return list.sort((a, b) => finalPrice(a) - finalPrice(b));
     case "price_desc":
-      return list.sort((a, b) => b.price - a.price);
+      return list.sort((a, b) => finalPrice(b) - finalPrice(a));
     case "name":
       return list.sort((a, b) => a.name.localeCompare(b.name, "es"));
     case "newest":

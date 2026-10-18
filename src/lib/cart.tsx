@@ -1,5 +1,8 @@
 "use client";
 
+import { finalPrice, onSale } from "./promo";
+import { supabase } from "./supabase";
+import { formatCOP } from "./format";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { CartItem, Product } from "./types";
 import { getImages } from "./images";
@@ -15,6 +18,8 @@ type CartCtx = {
   remove: (id: string) => void;
   setQty: (id: string, qty: number) => void;
   clear: () => void;
+  /** Compara el carrito con los datos actuales de la tienda y lo corrige. Devuelve los avisos (vacío = todo en orden). */
+  validate: () => Promise<string[]>;
 };
 
 const Ctx = createContext<CartCtx | null>(null);
@@ -96,6 +101,53 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clear = useCallback(() => commit([]), [commit]);
 
+  // Revisa precios, promociones, stock y disponibilidad contra la base de datos.
+  // Si no se puede consultar (sin conexión o modo demostración) no bloquea: el servidor vuelve a validar al crear el pedido.
+  const validate = useCallback(async (): Promise<string[]> => {
+    const current = itemsRef.current;
+    if (!supabase || current.length === 0) return [];
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .in("id", current.map((i) => i.product.id));
+    if (error || !data) return [];
+
+    const fresh = new Map((data as Product[]).map((p) => [p.id, p]));
+    const notes: string[] = [];
+    const next: CartItem[] = [];
+
+    for (const item of current) {
+      const p = fresh.get(item.product.id);
+      const name = item.product.name;
+      if (!p || p.active === false) {
+        notes.push(`"${name}" ya no está disponible y se quitó de tu carrito.`);
+        continue;
+      }
+      if (p.stock <= 0) {
+        notes.push(`"${name}" se agotó y se quitó de tu carrito.`);
+        continue;
+      }
+      let qty = item.qty;
+      if (qty > p.stock) {
+        qty = p.stock;
+        notes.push(`Solo quedan ${p.stock} ${p.stock === 1 ? "unidad" : "unidades"} de "${name}"; ajustamos la cantidad.`);
+      }
+      const before = finalPrice(item.product);
+      const after = finalPrice(p);
+      if (before !== after) {
+        notes.push(
+          after > before && onSale(item.product) && !onSale(p)
+            ? `La promoción de "${name}" terminó. Antes ${formatCOP(before)}, ahora ${formatCOP(after)}.`
+            : `El precio de "${name}" cambió: antes ${formatCOP(before)}, ahora ${formatCOP(after)}.`
+        );
+      }
+      next.push({ product: { ...p, images: getImages(p) }, qty });
+    }
+
+    commit(next);
+    return notes;
+  }, [commit]);
+
   const value = useMemo<CartCtx>(
     () => ({
       items,
@@ -105,10 +157,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       remove,
       setQty,
       clear,
+      validate,
       count: items.reduce((s, i) => s + i.qty, 0),
-      total: items.reduce((s, i) => s + i.qty * i.product.price, 0),
+      total: items.reduce((s, i) => s + i.qty * finalPrice(i.product), 0),
     }),
-    [items, open, add, remove, setQty, clear]
+    [items, open, add, remove, setQty, clear, validate]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

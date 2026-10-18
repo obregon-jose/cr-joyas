@@ -4,19 +4,19 @@ import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ShieldCheck, ShoppingBag, Truck, X } from "lucide-react";
 import ProductGallery from "./ProductGallery";
+import { StarsDisplay } from "./StarRating";
+import Price, { DiscountBadge } from "./Price";
+import { summarize, usePublicReviews } from "@/lib/reviews";
 import { getImages } from "@/lib/images";
 import { Product } from "@/lib/types";
-import { formatCOP } from "@/lib/format";
 import { useCart } from "@/lib/cart";
-import { StarsDisplay } from "./StarRating";
-import { summarize, usePublicReviews } from "@/lib/reviews";
 
 type Props = { product: Product | null; onClose: () => void };
 
 export default function ProductModal({ product, onClose }: Props) {
   const { add } = useCart();
   const { reviews } = usePublicReviews();
-const rating = product ? summarize(reviews, product.id) : { count: 0, average: 0 };
+  const rating = product ? summarize(reviews, product.id) : { count: 0, average: 0 };
 
   useEffect(() => {
     if (!product) return;
@@ -66,10 +66,10 @@ const rating = product ? summarize(reviews, product.id) : { count: 0, average: 0
                 {product.name}
               </motion.h3>
               {rating.count > 0 && (
-  <a href="#testimonios" onClick={onClose} className="-mt-2 flex w-fit items-center gap-2 text-xs text-white/50 transition hover:text-gold-200">
-    <StarsDisplay value={rating.average} size={16} /> ({rating.count})
-  </a>
-)}
+                <a href="#testimonios" onClick={onClose} className="-mt-2 flex w-fit items-center gap-2 text-xs text-white/50 transition hover:text-gold-200">
+                  <StarsDisplay value={rating.average} size={16} /> ({rating.count})
+                </a>
+              )}
               <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="leading-relaxed text-white/60">
                 {product.description}
               </motion.p>
@@ -83,16 +83,17 @@ const rating = product ? summarize(reviews, product.id) : { count: 0, average: 0
                   <dd className="mt-1 text-gold-100">{product.stock > 0 ? `${product.stock} unidades` : "Agotado"}</dd>
                 </div>
               </motion.dl>
-              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="gold-text font-serif text-4xl">
-                {formatCOP(product.price)}
-              </motion.p>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="flex flex-wrap items-center gap-3">
+                <Price product={product} className="text-4xl" />
+                <DiscountBadge product={product} />
+              </motion.div>
               <motion.button
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.45 }}
                 disabled={product.stock <= 0}
                 onClick={(e) => {
-                  if (!add(product, e.currentTarget)) return;
+                  if (!add(product, e.currentTarget)) return; // sin más unidades: aviso y el modal sigue abierto
                   onClose();
                 }}
                 className="btn-gold disabled:opacity-40"

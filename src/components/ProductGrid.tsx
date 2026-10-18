@@ -2,12 +2,13 @@
 
 import { useMemo, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion, useInView } from "framer-motion";
-import { Loader2, SlidersHorizontal, X } from "lucide-react";
+import { Loader2, Percent, SlidersHorizontal, X } from "lucide-react";
+import { onSale } from "@/lib/promo";
 import Reveal from "./Reveal";
 import ProductCard from "./ProductCard";
 import ProductModal from "./ProductModal";
 import FilterPanel from "./FilterPanel";
-import SortMenu from "./SortMenu1"; 
+import SortMenu from "./SortMenu1";
 import { useProducts } from "@/lib/use-products";
 import { useCategories } from "@/lib/use-categories";
 import { PAGE_SIZE, useInfiniteReveal } from "@/lib/use-infinite-reveal";
@@ -21,7 +22,6 @@ import {
   materialOptions,
 } from "@/lib/filters";
 import { formatCOP } from "@/lib/format";
-
 
 type Props = { category: string; setCategory: (c: string) => void };
 
@@ -109,8 +109,12 @@ export default function ProductGrid({ category, setCategory }: Props) {
       list.push({ key: "av", label: "Solo disponibles", remove: () => setFilters((f) => ({ ...f, onlyAvailable: false })) });
     if (filters.onlyFeatured)
       list.push({ key: "ft", label: "Destacados", remove: () => setFilters((f) => ({ ...f, onlyFeatured: false })) });
+    if (filters.onlyOnSale)
+      list.push({ key: "sale", label: "En oferta", remove: () => setFilters((f) => ({ ...f, onlyOnSale: false })) });
     return list;
   }, [category, filters, bounds, setCategory]);
+
+  const hasOffers = useMemo(() => shown.some(onSale), [shown]);
 
   return (
     <section id="catalogo" ref={sectionRef} className="relative mx-auto max-w-7xl px-6 py-20 sm:py-28">
@@ -136,6 +140,18 @@ export default function ProductGrid({ category, setCategory }: Props) {
                 </span>
               )}
             </button>
+
+            {hasOffers && (
+              <button
+                onClick={() => setFilters((f) => ({ ...f, onlyOnSale: !f.onlyOnSale }))}
+                aria-pressed={filters.onlyOnSale}
+                className={`flex h-11 items-center gap-2 rounded-full border px-5 text-[11px] font-medium uppercase tracking-[0.18em] transition ${
+                  filters.onlyOnSale ? "border-gold-300 bg-gold-300 text-ink-950" : "border-rose-gold/50 bg-ink-900 text-rose-gold hover:border-rose-gold"
+                }`}
+              >
+                <Percent className="h-4 w-4" /> Ofertas
+              </button>
+            )}
 
             <SortMenu value={filters.sort} onChange={(sort) => setFilters((f) => ({ ...f, sort }))} />
           </div>

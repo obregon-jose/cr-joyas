@@ -5,11 +5,14 @@ export type Product = {
   price: number;
   category: string;
   material: string;
-  image_url: string;
-  images?: string[];
+  image_url: string; // portada (siempre = images[0])
+  images?: string[]; // galería JSON; la primera es la portada
   featured: boolean;
   stock: number;
   active?: boolean; // false = pausado, no se muestra en la tienda
+  discount_percent?: number | null; // promoción: 1–90 (migración 011)
+  promo_start?: string | null; // inicio opcional
+  promo_end?: string | null; // fin opcional
   created_at?: string;
 };
 
@@ -28,6 +31,7 @@ export type CartItem = {
 
 export type Order = {
   id: string;
+  order_number?: number | null; // correlativo (migración 007)
   customer_name: string;
   email: string;
   phone: string;
@@ -38,5 +42,4 @@ export type Order = {
   total: number;
   status: string;
   created_at: string;
-  order_number?: number | null;
 };

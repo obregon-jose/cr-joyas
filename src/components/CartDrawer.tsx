@@ -1,5 +1,6 @@
 "use client";
 
+import { finalPrice, onSale } from "@/lib/promo";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Check, Loader2, MessageCircle, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
@@ -24,18 +25,45 @@ type PlacedOrder = {
 };
 
 export default function CartDrawer() {
-  const { items, open, setOpen, total, remove, setQty, clear } = useCart();
+  const { items, open, setOpen, total, remove, setQty, clear, validate } = useCart();
   const [step, setStep] = useState<Step>("cart");
   const [form, setForm] = useState(empty);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
+  const [notices, setNotices] = useState<string[]>([]);
+  const [checking, setChecking] = useState(false);
   const site = useSiteSettings();
 
   // Si el cliente vuelve a agregar piezas, se deja atrás la pantalla del pedido anterior.
   useEffect(() => {
     if (step === "done" && items.length > 0) setStep("cart");
   }, [items.length, step]);
+
+  // Al abrir el carrito se revisan precios y stock para que el cliente vea siempre valores al día.
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    validate().then((n) => alive && n.length && setNotices(n));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Antes de pedir los datos se revisa otra vez: si algo cambió se avisa y el cliente confirma el nuevo total.
+  const goCheckout = async () => {
+    setChecking(true);
+    const n = await validate();
+    setChecking(false);
+    if (n.length) {
+      setNotices(n);
+      setStep("cart");
+      return;
+    }
+    setNotices([]);
+    setStep("checkout");
+  };
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -50,7 +78,7 @@ export default function CartDrawer() {
   const placeOrder = async (): Promise<Omit<PlacedOrder, "customer">> => {
     if (!supabase) {
       await new Promise((r) => setTimeout(r, 1200)); // modo demo sin Supabase
-      return { number: null, total, items: items.map((i) => ({ name: i.product.name, price: i.product.price, qty: i.qty })) };
+      return { number: null, total, items: items.map((i) => ({ name: i.product.name, price: finalPrice(i.product), qty: i.qty })) };
     }
     const { data, error: err } = await supabase.rpc("create_order", {
       p_name: form.customer_name,
@@ -60,7 +88,7 @@ export default function CartDrawer() {
       p_city: form.city,
       p_notes: form.notes,
       p_items: items.map((i) => ({ id: String(i.product.id), qty: i.qty })),
-      p_device: getDeviceId(),
+      p_device: getDeviceId(), // identifica este dispositivo para habilitarle las reseñas
     });
     if (!err && data) {
       const d = data as { order_number: number | null; total: number; items: Line[] };
@@ -69,7 +97,7 @@ export default function CartDrawer() {
     // La migración 007 aún no se ejecutó: se usa el método anterior.
     const missing = err && (err.code === "PGRST202" || err.code === "42883" || /create_order|schema cache/i.test(err.message));
     if (!missing) throw new Error(err?.message ?? "Error al registrar el pedido");
-    const lines = items.map((i) => ({ id: i.product.id, name: i.product.name, price: i.product.price, qty: i.qty }));
+    const lines = items.map((i) => ({ id: i.product.id, name: i.product.name, price: finalPrice(i.product), qty: i.qty }));
     const { error: insErr } = await supabase.from("orders").insert({ ...form, items: lines, total });
     if (insErr) throw insErr;
     return { number: null, total, items: lines };
@@ -80,6 +108,13 @@ export default function CartDrawer() {
     setError("");
     setSending(true);
     try {
+      // Última revisión: si un precio o el stock cambió mientras llenaba los datos, vuelve al carrito con el aviso.
+      const changes = await validate();
+      if (changes.length) {
+        setNotices(changes);
+        setStep("cart");
+        return;
+      }
       const result = await placeOrder();
       setPlaced({ ...result, customer: form });
       clear();
@@ -142,6 +177,20 @@ export default function CartDrawer() {
                     exit={{ opacity: 0, x: -30 }}
                     className="p-6"
                   >
+                    {notices.length > 0 && (
+                      <div role="alert" className="mb-4 space-y-2 rounded-2xl border border-gold-400/40 bg-gold-400/10 p-4 text-sm text-gold-100">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="font-medium">Actualizamos tu carrito</p>
+                          <button onClick={() => setNotices([])} aria-label="Cerrar aviso" className="text-white/50 hover:text-white">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <ul className="list-disc space-y-1 pl-5 text-gold-100/90">
+                          {notices.map((m) => <li key={m}>{m}</li>)}
+                        </ul>
+                        <p className="text-xs text-white/50">Revisa el total y toca Continuar para seguir.</p>
+                      </div>
+                    )}
                     {items.length === 0 ? (
                       <div className="flex flex-col items-center gap-4 py-24 text-center text-white/50">
                         <ShoppingBag className="h-12 w-12 text-gold-500/50" strokeWidth={1} />
@@ -164,7 +213,10 @@ export default function CartDrawer() {
                               <div className="flex min-w-0 flex-1 flex-col justify-between">
                                 <div>
                                   <p className="truncate font-serif text-lg">{product.name}</p>
-                                  <p className="text-sm text-gold-300">{formatCOP(product.price)}</p>
+                                  <p className="text-sm text-gold-300">
+                                    {formatCOP(finalPrice(product))}
+                                    {onSale(product) && <span className="ml-2 text-xs text-white/35 line-through">{formatCOP(product.price)}</span>}
+                                  </p>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-3 rounded-full border border-white/10 px-2 py-1">
@@ -277,7 +329,9 @@ export default function CartDrawer() {
                   </motion.span>
                 </div>
                 {step === "cart" ? (
-                  <button onClick={() => setStep("checkout")} className="btn-gold w-full">Continuar</button>
+                  <button onClick={goCheckout} disabled={checking} className="btn-gold w-full disabled:opacity-60">
+                    {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continuar"}
+                  </button>
                 ) : (
                   <button type="submit" form="checkout-form" disabled={sending} className="btn-gold w-full disabled:opacity-60">
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirmar pedido"}
