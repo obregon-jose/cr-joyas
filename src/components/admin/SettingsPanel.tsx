@@ -1,13 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Loader2, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import ImageManager from "@/components/admin/ImageManager";
 import { deleteImages } from "@/lib/media/delete-images";
-import { DEFAULT_SETTINGS, SiteSettings, loadSettings, publishSettings } from "@/lib/site/site-settings";
+import {
+  DEFAULT_SETTINGS,
+  MARQUEE_ITEM_MAX,
+  MARQUEE_MAX,
+  SiteSettings,
+  cleanMarquee,
+  loadSettings,
+  publishSettings,
+} from "@/lib/site/site-settings";
 
-type Field = { key: keyof SiteSettings; label: string; hint?: string; long?: boolean };
+type TextKey = { [K in keyof SiteSettings]: SiteSettings[K] extends string ? K : never }[keyof SiteSettings];
+
+type Field = { key: TextKey; label: string; hint?: string; long?: boolean };
 
 const SECTIONS: { title: string; fields: Field[] }[] = [
   {
@@ -61,9 +71,10 @@ export default function SettingsPanel({ token }: { token: string | null }) {
     if (!supabase) return;
     setSaving(true);
     setMsg("");
+    const clean: SiteSettings = { ...form, marquee_items: cleanMarquee(form.marquee_items) };
     const { error } = await supabase
       .from("site_settings")
-      .upsert({ id: 1, data: form, updated_at: new Date().toISOString() });
+      .upsert({ id: 1, data: clean, updated_at: new Date().toISOString() });
     setSaving(false);
     if (error) {
       return setMsg(
@@ -75,8 +86,16 @@ export default function SettingsPanel({ token }: { token: string | null }) {
     // Si la portada cambió, la anterior se borra de ImgBB (si fue subida desde aquí).
     if (savedHero && savedHero !== form.hero_image) deleteImages([savedHero], token);
     setSavedHero(form.hero_image);
-    publishSettings(form);
+    setForm(clean);
+    publishSettings(clean);
     setMsg("Configuración guardada ✓ Ya se ve en el sitio.");
+  };
+
+  const setItems = (marquee_items: string[]) => setForm((f) => ({ ...f, marquee_items }));
+  const moveItem = (i: number, dir: -1 | 1) => {
+    const next = [...form.marquee_items];
+    [next[i], next[i + dir]] = [next[i + dir], next[i]];
+    setItems(next);
   };
 
   if (loading) {
@@ -130,6 +149,48 @@ export default function SettingsPanel({ token }: { token: string | null }) {
           )}
         </section>
       ))}
+
+      <section className="space-y-4 rounded-3xl border border-white/10 bg-ink-900 p-6">
+        <div>
+          <h3 className="eyebrow">Cinta de beneficios</h3>
+          <p className="mt-2 text-xs text-white/35">
+            Los mensajes que se desplazan bajo la portada. Máximo {MARQUEE_MAX}. Si los repites o son pocos, la cinta se completa sola. Déjala vacía para quitarla.
+          </p>
+        </div>
+        <ul className="space-y-2">
+          {form.marquee_items.map((text, i) => (
+            <li key={i} className="flex items-center gap-2">
+              <div className="flex flex-col">
+                <button type="button" onClick={() => moveItem(i, -1)} disabled={i === 0} aria-label="Subir" className="rounded p-0.5 text-white/50 hover:text-gold-300 disabled:opacity-20">
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+                <button type="button" onClick={() => moveItem(i, 1)} disabled={i === form.marquee_items.length - 1} aria-label="Bajar" className="rounded p-0.5 text-white/50 hover:text-gold-300 disabled:opacity-20">
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <input
+                className="input !py-2.5"
+                value={text}
+                maxLength={MARQUEE_ITEM_MAX}
+                placeholder="Ej: Envío asegurado a todo el país"
+                onChange={(e) => setItems(form.marquee_items.map((t, k) => (k === i ? e.target.value : t)))}
+              />
+              <button type="button" onClick={() => setItems(form.marquee_items.filter((_, k) => k !== i))} aria-label="Quitar mensaje" className="rounded-full p-2 text-white/40 hover:text-rose-gold">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </li>
+          ))}
+          {form.marquee_items.length === 0 && <li className="text-sm text-white/40">Sin mensajes: la cinta no se muestra.</li>}
+        </ul>
+        <button
+          type="button"
+          disabled={form.marquee_items.length >= MARQUEE_MAX}
+          onClick={() => setItems([...form.marquee_items, ""])}
+          className="btn-ghost !px-5 !py-2.5 disabled:opacity-40"
+        >
+          <Plus className="h-4 w-4" /> Agregar mensaje
+        </button>
+      </section>
 
       {msg && <p className="text-sm text-gold-300">{msg}</p>}
       <button disabled={saving} className="btn-gold w-full disabled:opacity-50">

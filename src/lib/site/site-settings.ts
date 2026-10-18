@@ -22,14 +22,19 @@ export type SiteSettings = {
   hero_ring_text: string; // texto que gira en el anillo dorado; vacío = sin anillo
   hero_cta1: string;
   hero_cta2: string;
+  // Cinta de beneficios que se desplaza bajo el hero; lista vacía = sin cinta
+  marquee_items: string[];
 };
+
+export const MARQUEE_MAX = 10;
+export const MARQUEE_ITEM_MAX = 60;
 
 export const DEFAULT_SETTINGS: SiteSettings = {
   brand_name: "CR Joyas",
-  footer_text: "CR Joyas Joyería. Todos los derechos reservados.",
-  whatsapp:  "573001234567",
+  footer_text: "CR Joyas. Todos los derechos reservados.",
+  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP ?? "573001234567",
   phone: "+57 300 123 4567",
-  email: "hola@CR Joyasjoyeria.co",
+  email: "hola@aureliajoyeria.co",
   address: "Cali, Valle del Cauca · Colombia",
   hours: "Lun – Sáb · 10:00 a 19:00",
   instagram: "",
@@ -41,19 +46,40 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   hero_ring_text: "Oro 18k · Diamantes · Esmeraldas",
   hero_cta1: "Explorar catálogo",
   hero_cta2: "Nuestro atelier",
+  marquee_items: [
+    "Envío asegurado a todo el país",
+    "Certificado de autenticidad",
+    "Oro 18k colombiano",
+    "Garantía de por vida",
+    "Empaque de regalo de lujo",
+    "Grabado personalizado",
+  ],
 };
 
 // Estos campos pueden quedar vacíos a propósito (se ocultan en el sitio).
 const OPTIONAL: (keyof SiteSettings)[] = ["instagram", "phone", "email", "address", "hours", "hero_ring_text"];
 
+/** Quita vacíos y espacios sobrantes y respeta los límites de la cinta. */
+export function cleanMarquee(list: unknown[]): string[] {
+  return list
+    .filter((x): x is string => typeof x === "string")
+    .map((x) => x.replace(/\s+/g, " ").trim().slice(0, MARQUEE_ITEM_MAX))
+    .filter(Boolean)
+    .slice(0, MARQUEE_MAX);
+}
+
 function merge(stored: unknown): SiteSettings {
   const out = { ...DEFAULT_SETTINGS };
   if (!stored || typeof stored !== "object") return out;
+  const raw = stored as Record<string, unknown>;
   for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof SiteSettings)[]) {
-    const v = (stored as Record<string, unknown>)[key];
+    if (key === "marquee_items") continue;
+    const v = raw[key];
     if (typeof v !== "string") continue;
-    if (v.trim() !== "" || OPTIONAL.includes(key)) out[key] = v;
+    if (v.trim() !== "" || OPTIONAL.includes(key)) (out as Record<string, unknown>)[key] = v;
   }
+  // La cinta es una lista: si se guardó (aunque quede vacía) manda lo guardado; si nunca se guardó, los valores por defecto.
+  if (Array.isArray(raw.marquee_items)) out.marquee_items = cleanMarquee(raw.marquee_items);
   return out;
 }
 
