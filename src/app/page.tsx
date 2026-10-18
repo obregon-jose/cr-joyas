@@ -14,6 +14,7 @@ import Contact, { Footer } from "@/components/Contact";
 import CartDrawer from "@/components/CartDrawer";
 import WhatsAppFab from "@/components/WhatsAppFab";
 import FloatingCart from "@/components/FloatingCart";
+import Faq from "@/components/Faq";
 
 export default function Home() {
   const [category, setCategory] = useState("Todas");
@@ -29,6 +30,7 @@ export default function Home() {
       <ProductGrid category={category} setCategory={setCategory} />
       <Atelier />
       <Testimonials />
+      <Faq />
       <Contact />
       <Footer />
       <CartDrawer />

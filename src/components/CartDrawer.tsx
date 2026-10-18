@@ -329,9 +329,20 @@ export default function CartDrawer() {
                   </motion.span>
                 </div>
                 {step === "cart" ? (
-                  <button onClick={goCheckout} disabled={checking} className="btn-gold w-full disabled:opacity-60">
-                    {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continuar"}
-                  </button>
+                  <>
+                    <button onClick={goCheckout} disabled={checking} className="btn-gold w-full disabled:opacity-60">
+                      {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continuar"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setOpen(false);
+                        setTimeout(() => document.getElementById("preguntas")?.scrollIntoView({ behavior: "smooth" }), 350);
+                      }}
+                      className="w-full text-center text-xs text-white/45 underline-offset-4 transition hover:text-gold-200 hover:underline"
+                    >
+                      ¿Dudas sobre envío o pago? Ver preguntas frecuentes
+                    </button>
+                  </>
                 ) : (
                   <button type="submit" form="checkout-form" disabled={sending} className="btn-gold w-full disabled:opacity-60">
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirmar pedido"}

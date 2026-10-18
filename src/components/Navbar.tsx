@@ -11,17 +11,18 @@ const links = [
   { href: "#catalogo", label: "Catálogo" },
   { href: "#atelier", label: "Atelier" },
   { href: "#testimonios", label: "Clientes" },
+  { href: "#preguntas", label: "Preguntas" },
   { href: "#contacto", label: "Contacto" },
 ];
 
 export default function Navbar() {
+  const site = useSiteSettings();
   const { count, setOpen } = useCart();
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [menu, setMenu] = useState(false);
   const { scrollYProgress } = useScroll();
   const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 25 });
-  const site = useSiteSettings();
 
   useEffect(() => {
     let last = 0;

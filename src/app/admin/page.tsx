@@ -11,6 +11,7 @@ import ImageManager from "@/components/ImageManager";
 import SettingsPanel from "@/components/SettingsPanel";
 import ReviewsPanel from "@/components/ReviewsPanel";
 import PromotionsPanel from "@/components/PromotionsPanel";
+import FaqPanel from "@/components/FaqPanel";
 import { finalPrice, fromDateInput, promoStatus, toDateInput } from "@/lib/promo";
 import { useSiteSettings, waLink } from "@/lib/site-settings";
 import { buildCustomerMessage, phoneToWa } from "@/lib/order-message";
@@ -52,7 +53,7 @@ export default function AdminPage() {
   const [originalImages, setOriginalImages] = useState<string[]>([]); // imágenes que el producto ya tenía al empezar a editar
   const [saving, setSaving] = useState(false);
   const [isRoot, setIsRoot] = useState(false);
-  const [tab, setTab] = useState<"panel" | "promos" | "categories" | "reviews" | "settings" | "users">("panel");
+  const [tab, setTab] = useState<"panel" | "promos" | "categories" | "reviews" | "faq" | "settings" | "users">("panel");
   const [catRows, setCatRows] = useState<Category[]>([]);
 
   // Categorías activas de la tabla (migración 004); si aún no existe, las de siempre.
@@ -293,9 +294,10 @@ export default function AdminPage() {
                 ["promos", "Promociones"],
                 ["categories", "Categorías"],
                 ["reviews", "Reseñas"],
+                ["faq", "Preguntas"],
                 ["settings", "Configuración"],
                 ...(isRoot ? [["users", "Usuarios"]] : []),
-              ] as ["panel" | "promos" | "categories" | "reviews" | "settings" | "users", string][]
+              ] as ["panel" | "promos" | "categories" | "reviews" | "faq" | "settings" | "users", string][]
             ).map(([t, label]) => (
               <button
                 key={t}
@@ -473,6 +475,8 @@ export default function AdminPage() {
       {tab === "categories" && <CategoriesPanel onChanged={load} />}
 
       {tab === "reviews" && <ReviewsPanel token={token} />}
+
+      {tab === "faq" && <FaqPanel />}
 
       {tab === "settings" && <SettingsPanel token={token} />}
 
