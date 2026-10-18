@@ -21,7 +21,7 @@ export default function WhatsAppFab() {
       whileHover={{ scale: 1.1 }}
       className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-gold-400 to-gold-200 text-ink-950 shadow-[0_0_30px_rgba(217,174,58,0.45)]"
     >
-      <span className="absolute inset-0 animate-ping rounded-full bg-gold-300/40" />
+      <span className="absolute inset-0 animate-ping- rounded-full bg-gold-300/40" />
       <WhatsAppIcon className="relative w-8 h-8"/>
     </motion.a>
   );
