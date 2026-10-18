@@ -8,11 +8,15 @@ import { getImages } from "@/lib/images";
 import { Product } from "@/lib/types";
 import { formatCOP } from "@/lib/format";
 import { useCart } from "@/lib/cart";
+import { StarsDisplay } from "./StarRating";
+import { summarize, usePublicReviews } from "@/lib/reviews";
 
 type Props = { product: Product | null; onClose: () => void };
 
 export default function ProductModal({ product, onClose }: Props) {
   const { add } = useCart();
+  const { reviews } = usePublicReviews();
+const rating = product ? summarize(reviews, product.id) : { count: 0, average: 0 };
 
   useEffect(() => {
     if (!product) return;
@@ -61,6 +65,11 @@ export default function ProductModal({ product, onClose }: Props) {
               <motion.h3 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="font-serif text-3xl leading-tight md:text-5xl">
                 {product.name}
               </motion.h3>
+              {rating.count > 0 && (
+  <a href="#testimonios" onClick={onClose} className="-mt-2 flex w-fit items-center gap-2 text-xs text-white/50 transition hover:text-gold-200">
+    <StarsDisplay value={rating.average} size={16} /> ({rating.count})
+  </a>
+)}
               <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="leading-relaxed text-white/60">
                 {product.description}
               </motion.p>

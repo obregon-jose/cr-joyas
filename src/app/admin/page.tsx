@@ -13,6 +13,7 @@ import SettingsPanel from "@/components/SettingsPanel";
 import { useSiteSettings, waLink } from "@/lib/site-settings";
 import { buildCustomerMessage, phoneToWa } from "@/lib/order-message";
 import { deleteImages } from "@/lib/delete-images";
+import ReviewsPanel from "@/components/ReviewsPanel";
 
 const DEFAULT_CATEGORIES = ["Anillos", "Collares", "Aretes", "Pulseras"];
 
@@ -45,7 +46,7 @@ export default function AdminPage() {
   const [originalImages, setOriginalImages] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [isRoot, setIsRoot] = useState(false);
-  const [tab, setTab] = useState<"panel" | "categories" | "settings" | "users">("panel");
+  const [tab, setTab] = useState<"panel" | "categories" | "reviews" | "settings" | "users">("panel");
   const [catRows, setCatRows] = useState<Category[]>([]);
   const site = useSiteSettings();
 
@@ -275,9 +276,10 @@ if (editingId === id) { setOriginalImages([]); setEditingId(null); setForm(blank
               [
                 ["panel", "Catálogo"],
                 ["categories", "Categorías"],
+                ["reviews", "Reseñas"],
                 ...(isRoot ? [["users", "Usuarios"]] : []),
                 ["settings", "Configuración"],
-              ] as ["panel" | "categories" | "settings" | "users", string][]
+              ] as ["panel" | "categories"  | "reviews" | "settings" | "users", string][]
             ).map(([t, label]) => (
               <button
                 key={t}
@@ -411,6 +413,8 @@ if (editingId === id) { setOriginalImages([]); setEditingId(null); setForm(blank
       )}
 
       {tab === "categories" && <CategoriesPanel onChanged={load} />}
+
+      {tab === "reviews" && <ReviewsPanel token={token} />}
 
       {tab === "users" && isRoot && <UsersPanel />}
 

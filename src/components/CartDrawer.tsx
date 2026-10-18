@@ -9,6 +9,7 @@ import { formatCOP } from "@/lib/format";
 import { supabase } from "@/lib/supabase";
 import { useSiteSettings, waLink } from "@/lib/site-settings";
 import { buildOrderMessage } from "@/lib/order-message";
+import { getDeviceId } from "@/lib/device";
 
 type Step = "cart" | "checkout" | "done";
 
@@ -59,6 +60,7 @@ export default function CartDrawer() {
       p_city: form.city,
       p_notes: form.notes,
       p_items: items.map((i) => ({ id: String(i.product.id), qty: i.qty })),
+      p_device: getDeviceId(),
     });
     if (!err && data) {
       const d = data as { order_number: number | null; total: number; items: Line[] };
