@@ -24,10 +24,24 @@ export type SiteSettings = {
   hero_cta2: string;
   // Cinta de beneficios que se desplaza bajo el hero; lista vacía = sin cinta
   marquee_items: string[];
+  // Atelier
+  atelier_eyebrow: string;
+  atelier_title: string; // las palabras entre *asteriscos* salen en dorado
+  atelier_text: string;
+  atelier_image1: string; // foto grande de arriba a la izquierda
+  atelier_image2: string; // foto de abajo a la derecha
+  atelier_badge: string; // texto del sello giratorio; vacío = sin sello
+  atelier_stats: AtelierStat[]; // cifras animadas; lista vacía = sin cifras
 };
+
+export type AtelierStat = { value: number; suffix: string; label: string };
 
 export const MARQUEE_MAX = 10;
 export const MARQUEE_ITEM_MAX = 60;
+export const STATS_MAX = 4;
+export const STAT_LABEL_MAX = 40;
+export const STAT_SUFFIX_MAX = 3;
+export const STAT_VALUE_MAX = 99999999;
 
 export const DEFAULT_SETTINGS: SiteSettings = {
   brand_name: "CR Joyas",
@@ -54,10 +68,23 @@ export const DEFAULT_SETTINGS: SiteSettings = {
     "Empaque de regalo de lujo",
     "Grabado personalizado",
   ],
+  atelier_eyebrow: "Nuestro atelier",
+  atelier_title: "Cada joya, una *obra de arte*",
+  atelier_text:
+    "En nuestro taller de Cali, maestros orfebres transforman oro, diamantes y esmeraldas colombianas en piezas que acompañan los momentos más importantes de la vida. Diseñamos, fundimos, engastamos y pulimos cada detalle a mano.",
+  atelier_image1: "https://images.unsplash.com/photo-1573408301185-9146fe634ad0?w=900&q=80",
+  atelier_image2: "https://images.unsplash.com/photo-1602173574767-37ac01994b2a?w=900&q=80",
+  atelier_badge: "Hecho a mano",
+  atelier_stats: [
+    { value: 25, suffix: "+", label: "Años de maestría" },
+    { value: 12000, suffix: "+", label: "Clientes felices" },
+    { value: 100, suffix: "%", label: "Oro 18k certificado" },
+    { value: 340, suffix: "", label: "Piezas únicas al año" },
+  ],
 };
 
 // Estos campos pueden quedar vacíos a propósito (se ocultan en el sitio).
-const OPTIONAL: (keyof SiteSettings)[] = ["instagram", "phone", "email", "address", "hours", "hero_ring_text"];
+const OPTIONAL: (keyof SiteSettings)[] = ["instagram", "phone", "email", "address", "hours", "hero_ring_text", "atelier_badge"];
 
 /** Quita vacíos y espacios sobrantes y respeta los límites de la cinta. */
 export function cleanMarquee(list: unknown[]): string[] {
@@ -68,18 +95,37 @@ export function cleanMarquee(list: unknown[]): string[] {
     .slice(0, MARQUEE_MAX);
 }
 
+/** Limpia las cifras del atelier: sin etiquetas vacías, números válidos y límites de tamaño. */
+export function cleanStats(list: unknown[]): AtelierStat[] {
+  const out: AtelierStat[] = [];
+  for (const x of list) {
+    if (!x || typeof x !== "object") continue;
+    const r = x as Record<string, unknown>;
+    const label = typeof r.label === "string" ? r.label.replace(/\s+/g, " ").trim().slice(0, STAT_LABEL_MAX) : "";
+    const num = Math.round(Number(r.value));
+    if (!label || !Number.isFinite(num)) continue;
+    out.push({
+      value: Math.min(Math.max(num, 0), STAT_VALUE_MAX),
+      suffix: typeof r.suffix === "string" ? r.suffix.trim().slice(0, STAT_SUFFIX_MAX) : "",
+      label,
+    });
+  }
+  return out.slice(0, STATS_MAX);
+}
+
 function merge(stored: unknown): SiteSettings {
   const out = { ...DEFAULT_SETTINGS };
   if (!stored || typeof stored !== "object") return out;
   const raw = stored as Record<string, unknown>;
   for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof SiteSettings)[]) {
-    if (key === "marquee_items") continue;
+    if (key === "marquee_items" || key === "atelier_stats") continue;
     const v = raw[key];
     if (typeof v !== "string") continue;
     if (v.trim() !== "" || OPTIONAL.includes(key)) (out as Record<string, unknown>)[key] = v;
   }
   // La cinta es una lista: si se guardó (aunque quede vacía) manda lo guardado; si nunca se guardó, los valores por defecto.
   if (Array.isArray(raw.marquee_items)) out.marquee_items = cleanMarquee(raw.marquee_items);
+  if (Array.isArray(raw.atelier_stats)) out.atelier_stats = cleanStats(raw.atelier_stats);
   return out;
 }
 
@@ -142,13 +188,20 @@ export function waLink(number: string, text?: string) {
   return `https://wa.me/${digits}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
 }
 
-/** "Brillo que *cuenta*" → [{ word: "Brillo", gold: false }, { word: "cuenta", gold: true }] */
+/**
+ * "Brillo que *cuenta* tu *historia*" → [{ word: "Brillo", gold: false }, { word: "cuenta", gold: true }, ...]
+ * Los asteriscos pueden abarcar varias palabras: "una *obra de arte*" deja las tres en dorado.
+ */
 export function parseTitle(title: string) {
-  return title
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => {
-      const gold = w.startsWith("*") && w.endsWith("*") && w.length > 2;
-      return { word: gold ? w.slice(1, -1) : w.replace(/\*/g, ""), gold };
-    });
+  const out: { word: string; gold: boolean }[] = [];
+  let gold = false;
+  for (const raw of title.split(/\s+/).filter(Boolean)) {
+    const opens = raw.startsWith("*");
+    const closes = raw.endsWith("*") && raw.replace(/\*/g, "") !== "";
+    if (opens) gold = true;
+    const word = raw.replace(/\*/g, "");
+    if (word) out.push({ word, gold });
+    if (closes || (opens && raw.length > 1 && raw.endsWith("*"))) gold = false;
+  }
+  return out;
 }

@@ -9,8 +9,13 @@ import {
   DEFAULT_SETTINGS,
   MARQUEE_ITEM_MAX,
   MARQUEE_MAX,
+  STATS_MAX,
+  STAT_LABEL_MAX,
+  STAT_SUFFIX_MAX,
+  STAT_VALUE_MAX,
   SiteSettings,
   cleanMarquee,
+  cleanStats,
   loadSettings,
   publishSettings,
 } from "@/lib/site/site-settings";
@@ -49,19 +54,36 @@ const SECTIONS: { title: string; fields: Field[] }[] = [
       { key: "hero_cta2", label: "Botón secundario" },
     ],
   },
+  {
+    title: "Atelier",
+    fields: [
+      { key: "atelier_eyebrow", label: "Texto pequeño superior" },
+      { key: "atelier_title", label: "Título", hint: "Pon entre *asteriscos* las palabras en dorado. Ej: Cada joya, una *obra de arte*" },
+      { key: "atelier_text", label: "Descripción", long: true },
+      { key: "atelier_badge", label: "Sello giratorio", hint: "El texto del círculo que gira sobre las fotos. Vacío = sin sello." },
+    ],
+  },
 ];
+
+const ATELIER_IMAGES: { key: "atelier_image1" | "atelier_image2"; label: string }[] = [
+  { key: "atelier_image1", label: "Foto grande (arriba a la izquierda)" },
+  { key: "atelier_image2", label: "Foto pequeña (abajo a la derecha)" },
+];
+
+const MEDIA_KEYS = ["hero_image", "atelier_image1", "atelier_image2"] as const;
+const pickMedia = (s: SiteSettings) => ({ hero_image: s.hero_image, atelier_image1: s.atelier_image1, atelier_image2: s.atelier_image2 });
 
 export default function SettingsPanel({ token }: { token: string | null }) {
   const [form, setForm] = useState<SiteSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
-  const [savedHero, setSavedHero] = useState(""); // imagen de portada guardada actualmente
+  const [saved, setSaved] = useState(pickMedia(DEFAULT_SETTINGS)); // imágenes guardadas actualmente (para borrar las reemplazadas)
 
   useEffect(() => {
     loadSettings(true).then((s) => {
       setForm(s);
-      setSavedHero(s.hero_image);
+      setSaved(pickMedia(s));
       setLoading(false);
     });
   }, []);
@@ -71,7 +93,7 @@ export default function SettingsPanel({ token }: { token: string | null }) {
     if (!supabase) return;
     setSaving(true);
     setMsg("");
-    const clean: SiteSettings = { ...form, marquee_items: cleanMarquee(form.marquee_items) };
+    const clean: SiteSettings = { ...form, marquee_items: cleanMarquee(form.marquee_items), atelier_stats: cleanStats(form.atelier_stats) };
     const { error } = await supabase
       .from("site_settings")
       .upsert({ id: 1, data: clean, updated_at: new Date().toISOString() });
@@ -83,15 +105,16 @@ export default function SettingsPanel({ token }: { token: string | null }) {
           : error.message
       );
     }
-    // Si la portada cambió, la anterior se borra de ImgBB (si fue subida desde aquí).
-    if (savedHero && savedHero !== form.hero_image) deleteImages([savedHero], token);
-    setSavedHero(form.hero_image);
+    // Si una imagen cambió, la anterior se borra de ImgBB (si fue subida desde aquí).
+    for (const k of MEDIA_KEYS) if (saved[k] && saved[k] !== form[k]) deleteImages([saved[k]], token);
+    setSaved(pickMedia(form));
     setForm(clean);
     publishSettings(clean);
     setMsg("Configuración guardada ✓ Ya se ve en el sitio.");
   };
 
   const setItems = (marquee_items: string[]) => setForm((f) => ({ ...f, marquee_items }));
+  const setStats = (atelier_stats: SiteSettings["atelier_stats"]) => setForm((f) => ({ ...f, atelier_stats }));
   const moveItem = (i: number, dir: -1 | 1) => {
     const next = [...form.marquee_items];
     [next[i], next[i + dir]] = [next[i + dir], next[i]];
@@ -141,14 +164,84 @@ export default function SettingsPanel({ token }: { token: string | null }) {
                 token={token}
                 max={1}
                 onDiscard={(url) => {
-                  if (url !== savedHero) deleteImages([url], token);
+                  if (url !== saved.hero_image) deleteImages([url], token);
                 }}
               />
               <span className="block text-xs text-white/35">Si la quitas, se usa la imagen original. Mejor horizontal y de buena calidad.</span>
             </div>
           )}
+          {section.title === "Atelier" &&
+            ATELIER_IMAGES.map((im) => (
+              <div key={im.key} className="space-y-1.5">
+                <span className="text-sm text-white/70">{im.label}</span>
+                <ImageManager
+                  images={form[im.key] ? [form[im.key]] : []}
+                  onChange={(imgs) => setForm({ ...form, [im.key]: imgs[0] ?? "" })}
+                  token={token}
+                  max={1}
+                  onDiscard={(url) => {
+                    if (url !== saved[im.key]) deleteImages([url], token);
+                  }}
+                />
+              </div>
+            ))}
+          {section.title === "Atelier" && (
+            <span className="block text-xs text-white/35">Si quitas una foto, se usa la original.</span>
+          )}
         </section>
       ))}
+
+      <section className="space-y-4 rounded-3xl border border-white/10 bg-ink-900 p-6">
+        <div>
+          <h3 className="eyebrow">Cifras del atelier</h3>
+          <p className="mt-2 text-xs text-white/35">
+            Números que cuentan al aparecer en pantalla. Máximo {STATS_MAX}. Símbolo opcional (+, %). Déjalas vacías para quitarlas.
+          </p>
+        </div>
+        <ul className="space-y-3">
+          {form.atelier_stats.map((st, i) => (
+            <li key={i} className="flex flex-wrap items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={STAT_VALUE_MAX}
+                className="input !w-28 !py-2.5"
+                value={Number.isFinite(st.value) ? st.value : 0}
+                aria-label="Número"
+                onChange={(e) => setStats(form.atelier_stats.map((x, k) => (k === i ? { ...x, value: Number(e.target.value) } : x)))}
+              />
+              <input
+                className="input !w-16 !py-2.5 text-center"
+                value={st.suffix}
+                maxLength={STAT_SUFFIX_MAX}
+                placeholder="+"
+                aria-label="Símbolo"
+                onChange={(e) => setStats(form.atelier_stats.map((x, k) => (k === i ? { ...x, suffix: e.target.value } : x)))}
+              />
+              <input
+                className="input !min-w-[10rem] flex-1 !py-2.5"
+                value={st.label}
+                maxLength={STAT_LABEL_MAX}
+                placeholder="Ej: Años de maestría"
+                aria-label="Descripción"
+                onChange={(e) => setStats(form.atelier_stats.map((x, k) => (k === i ? { ...x, label: e.target.value } : x)))}
+              />
+              <button type="button" onClick={() => setStats(form.atelier_stats.filter((_, k) => k !== i))} aria-label="Quitar cifra" className="rounded-full p-2 text-white/40 hover:text-rose-gold">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </li>
+          ))}
+          {form.atelier_stats.length === 0 && <li className="text-sm text-white/40">Sin cifras: no se muestra esa parte.</li>}
+        </ul>
+        <button
+          type="button"
+          disabled={form.atelier_stats.length >= STATS_MAX}
+          onClick={() => setStats([...form.atelier_stats, { value: 0, suffix: "", label: "" }])}
+          className="btn-ghost !px-5 !py-2.5 disabled:opacity-40"
+        >
+          <Plus className="h-4 w-4" /> Agregar cifra
+        </button>
+      </section>
 
       <section className="space-y-4 rounded-3xl border border-white/10 bg-ink-900 p-6">
         <div>
