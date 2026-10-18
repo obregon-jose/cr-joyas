@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { CartProvider } from "@/lib/cart";
+import { CartProvider } from "@/lib/cart/cart";
 
 export const metadata: Metadata = {
   title: "CR JOYAS · Alta joyería colombiana",

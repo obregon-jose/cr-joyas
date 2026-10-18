@@ -5,18 +5,18 @@ import { Eye, EyeOff, Loader2, LogOut, MessageCircle, Pencil, Trash2, X } from "
 import { supabase } from "@/lib/supabase";
 import { formatCOP } from "@/lib/format";
 import { Category, Order, Product } from "@/lib/types";
-import UsersPanel from "@/components/UsersPanel";
-import CategoriesPanel from "@/components/CategoriesPanel";
-import ImageManager from "@/components/ImageManager";
-import SettingsPanel from "@/components/SettingsPanel";
-import ReviewsPanel from "@/components/ReviewsPanel";
-import PromotionsPanel from "@/components/PromotionsPanel";
-import FaqPanel from "@/components/FaqPanel";
-import { finalPrice, fromDateInput, promoStatus, toDateInput } from "@/lib/promo";
-import { useSiteSettings, waLink } from "@/lib/site-settings";
-import { buildCustomerMessage, phoneToWa } from "@/lib/order-message";
-import { getImages } from "@/lib/images";
-import { deleteImages } from "@/lib/delete-images";
+import UsersPanel from "@/components/admin/UsersPanel";
+import CategoriesPanel from "@/components/admin/CategoriesPanel";
+import ImageManager from "@/components/admin/ImageManager";
+import SettingsPanel from "@/components/admin/SettingsPanel";
+import ReviewsPanel from "@/components/admin/ReviewsPanel";
+import PromotionsPanel from "@/components/admin/PromotionsPanel";
+import FaqPanel from "@/components/admin/FaqPanel";
+import { finalPrice, fromDateInput, promoStatus, toDateInput } from "@/lib/catalog/promo";
+import { useSiteSettings, waLink } from "@/lib/site/site-settings";
+import { buildCustomerMessage, phoneToWa } from "@/lib/cart/order-message";
+import { getImages } from "@/lib/catalog/images";
+import { deleteImages } from "@/lib/media/delete-images";
 
 const DEFAULT_CATEGORIES = ["Anillos", "Collares", "Aretes", "Pulseras"];
 

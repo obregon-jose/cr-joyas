@@ -1,4 +1,4 @@
-# CR JOYAS · Next.js + Tailwind + Supabase + ImgBB
+# CR Joyas · Next.js + Tailwind + Supabase + ImgBB
 
 ## Puesta en marcha
 1. `npm install`
@@ -20,3 +20,32 @@
 - `001_seguridad_y_activo.sql`: tabla `admins` + función `is_admin()` (solo admins escriben) y columna `active` para pausar productos.
 - `002_roles_root_admin.sql`: roles `root`/`admin`, activar o desactivar administradores y pestaña Usuarios (solo root). Promueve a root a jo46646@gmail.com.
 - `003_listar_usuarios.sql`: la pestaña Usuarios lista todas las cuentas de Supabase y el root da o quita acceso con un clic.
+- `004_categorias.sql`: tabla `categories` editable desde el panel (crear, renombrar, ordenar, ocultar, borrar).
+
+## Estructura del código
+
+```
+src/
+├─ app/                  Rutas de Next.js
+│  ├─ page.tsx           Portada
+│  ├─ admin/             Panel de administración
+│  └─ api/               Subida y borrado de imágenes (servidor)
+├─ components/
+│  ├─ layout/            Navbar, WhatsAppFab, CursorGlow
+│  ├─ sections/          Secciones de la portada: Intro, Hero, Marquee, Collections, Atelier, Contact
+│  ├─ catalog/           Catálogo: ProductGrid, ProductCard, ProductModal, filtros, Price
+│  ├─ cart/              CartDrawer, FloatingCart
+│  ├─ reviews/           Testimonials, ReviewCard, ReviewDetail, ReviewModal
+│  ├─ faq/               Preguntas frecuentes
+│  ├─ admin/             Paneles del admin (promociones, reseñas, categorías, preguntas, ajustes, usuarios)
+│  └─ ui/                Piezas reutilizables: SafeImage, Reveal, StarRating
+└─ lib/
+   ├─ supabase.ts, types.ts, format.ts, demo-data.ts, device.ts   Núcleo
+   ├─ catalog/           Productos: filtros, promociones, imágenes, hooks de carga
+   ├─ cart/              Carrito, animación de vuelo, mensaje del pedido
+   ├─ reviews/           Reseñas
+   ├─ site/              Contenido editable: ajustes del sitio y preguntas frecuentes
+   └─ media/             Subida y borrado de imágenes
+```
+
+Los imports usan siempre el alias `@/` (por ejemplo `@/lib/cart/cart`, `@/components/catalog/ProductCard`).
