@@ -21,6 +21,8 @@ export type Category = {
   name: string;
   position: number;
   active: boolean;
+  tagline?: string | null; // frase de la colección (migración 013)
+  image_url?: string | null; // foto de la colección
   created_at?: string;
 };
 

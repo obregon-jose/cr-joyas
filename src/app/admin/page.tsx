@@ -472,7 +472,7 @@ export default function AdminPage() {
 
       {tab === "promos" && <PromotionsPanel products={products} categories={categoryNames} onChanged={load} />}
 
-      {tab === "categories" && <CategoriesPanel onChanged={load} />}
+      {tab === "categories" && <CategoriesPanel onChanged={load} token={token} />}
 
       {tab === "reviews" && <ReviewsPanel token={token} />}
 

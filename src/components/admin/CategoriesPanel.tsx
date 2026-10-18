@@ -1,16 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, Check, Eye, EyeOff, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Eye, EyeOff, ImageIcon, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Category } from "@/lib/types";
+import ImageManager from "@/components/admin/ImageManager";
+import { deleteImages } from "@/lib/media/delete-images";
 
 // Pestaña "Categorías": crear, renombrar, ordenar, ocultar y borrar. La ven todos los administradores.
-export default function CategoriesPanel({ onChanged }: { onChanged: () => void }) {
+export default function CategoriesPanel({ onChanged, token }: { onChanged: () => void; token: string | null }) {
   const [rows, setRows] = useState<Category[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [image, setImage] = useState<string[]>([]);
+  const [detailId, setDetailId] = useState<string | null>(null); // categoría con sus detalles abiertos
+  const [dTagline, setDTagline] = useState("");
+  const [dImage, setDImage] = useState<string[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -48,7 +55,14 @@ export default function CategoriesPanel({ onChanged }: { onChanged: () => void }
     const { error } = await action();
     setBusy(false);
     if (error) {
-      setMsg({ ok: false, text: error.message.includes("duplicate") ? "Ya existe una categoría con ese nombre" : error.message });
+      setMsg({
+        ok: false,
+        text: error.message.includes("duplicate")
+          ? "Ya existe una categoría con ese nombre"
+          : /tagline|image_url/i.test(error.message)
+            ? "Falta ejecutar la migración 013 en Supabase (supabase/migrations/013_colecciones.sql)."
+            : error.message,
+      });
       return false;
     }
     setMsg({ ok: true, text: okText });
@@ -62,8 +76,15 @@ export default function CategoriesPanel({ onChanged }: { onChanged: () => void }
     const n = name.trim();
     if (!n || !supabase) return;
     const next = rows.reduce((m, r) => Math.max(m, r.position), 0) + 1;
-    const ok = await run(() => supabase!.from("categories").insert({ name: n, position: next }), `Categoría "${n}" creada ✓`);
-    if (ok) setName("");
+    const ok = await run(
+      () => supabase!.from("categories").insert({ name: n, position: next, tagline: tagline.trim() || null, image_url: image[0] ?? null }),
+      `Categoría "${n}" creada ✓`
+    );
+    if (ok) {
+      setName("");
+      setTagline("");
+      setImage([]);
+    }
   };
 
   const rename = async (old: string) => {
@@ -72,6 +93,27 @@ export default function CategoriesPanel({ onChanged }: { onChanged: () => void }
     if (!n || n === old) return setEditing(null);
     const ok = await run(() => supabase!.rpc("rename_category", { p_old: old, p_new: n }), `Renombrada a "${n}" ✓ (también en sus productos)`);
     if (ok) setEditing(null);
+  };
+
+  const openDetail = (c: Category) => {
+    if (detailId === c.id) return setDetailId(null);
+    setDetailId(c.id);
+    setDTagline(c.tagline ?? "");
+    setDImage(c.image_url ? [c.image_url] : []);
+  };
+
+  const saveDetail = async (c: Category) => {
+    if (!supabase) return;
+    const newImg = dImage[0] ?? null;
+    const ok = await run(
+      () => supabase!.from("categories").update({ tagline: dTagline.trim() || null, image_url: newImg }).eq("id", c.id),
+      "Colección actualizada ✓ Ya se ve en la portada."
+    );
+    if (ok) {
+      // La foto anterior se borra de ImgBB si fue reemplazada o quitada.
+      if (c.image_url && c.image_url !== newImg) deleteImages([c.image_url], token);
+      setDetailId(null);
+    }
   };
 
   const toggle = (c: Category) =>
@@ -101,12 +143,24 @@ export default function CategoriesPanel({ onChanged }: { onChanged: () => void }
       <form onSubmit={add} className="h-fit space-y-3 rounded-3xl border border-white/10 bg-ink-900 p-6">
         <h2 className="font-serif text-2xl">Nueva categoría</h2>
         <input className="input" placeholder="Ej: Relojes" value={name} onChange={(e) => setName(e.target.value)} required />
+        <input className="input" placeholder="Frase de la colección (opcional)" value={tagline} onChange={(e) => setTagline(e.target.value)} maxLength={50} />
+        <div className="space-y-1.5">
+          <span className="text-sm text-white/60">Foto de la colección (opcional)</span>
+          <ImageManager
+            images={image}
+            onChange={setImage}
+            token={token}
+            max={1}
+            onDiscard={(url) => deleteImages([url], token)}
+          />
+        </div>
         {msg && <p className={`text-sm ${msg.ok ? "text-gold-300" : "text-rose-gold"}`}>{msg.text}</p>}
         <button disabled={busy} className="btn-gold w-full disabled:opacity-50">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Crear categoría
         </button>
         <p className="text-xs text-white/40">
           El orden de esta lista es el orden de los filtros en la tienda. Ocultar una categoría esconde también sus productos.
+          En la portada se muestran 4 colecciones a la vez; si tienes más, van alternando solas.
         </p>
       </form>
 
@@ -157,6 +211,7 @@ export default function CategoriesPanel({ onChanged }: { onChanged: () => void }
               ) : (
                 <>
                   <button onClick={() => { setEditing(c.name); setEditName(c.name); }} aria-label="Renombrar" title="Renombrar" className="rounded-full p-2 text-white/50 hover:text-gold-300"><Pencil className="h-4 w-4" /></button>
+                  <button onClick={() => openDetail(c)} aria-label="Frase y foto de la colección" title="Frase y foto de la colección" className={`rounded-full p-2 hover:text-gold-300 ${detailId === c.id ? "text-gold-300" : "text-white/50"}`}><ImageIcon className="h-4 w-4" /></button>
                   <button onClick={() => toggle(c)} aria-label={c.active ? "Ocultar" : "Mostrar"} title={c.active ? "Ocultar en la tienda" : "Mostrar en la tienda"} className="rounded-full p-2 text-white/50 hover:text-gold-300">
                     {c.active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                   </button>
@@ -170,6 +225,26 @@ export default function CategoriesPanel({ onChanged }: { onChanged: () => void }
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </>
+              )}
+
+              {detailId === c.id && (
+                <div className="mt-2 w-full space-y-3 border-t border-white/10 pt-4">
+                  <input className="input" placeholder="Frase de la colección (ej: Luz en cada gesto)" value={dTagline} onChange={(e) => setDTagline(e.target.value)} maxLength={50} />
+                  <ImageManager
+                    images={dImage}
+                    onChange={setDImage}
+                    token={token}
+                    max={1}
+                    onDiscard={(url) => {
+                      // Una foto recién subida que se descarta se borra ya; la que ya tenía la categoría se borra al guardar.
+                      if (url !== c.image_url) deleteImages([url], token);
+                    }}
+                  />
+                  <p className="text-xs text-white/35">Si no tiene foto, se usa la de su producto más reciente. Mejor horizontal y de buena calidad.</p>
+                  <button onClick={() => saveDetail(c)} disabled={busy} className="btn-gold !px-6 !py-2.5 disabled:opacity-50">
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar colección"}
+                  </button>
+                </div>
               )}
             </div>
           );
