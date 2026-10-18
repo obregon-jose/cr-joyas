@@ -7,11 +7,11 @@ import { useCart } from "@/lib/cart/cart";
 import { useSiteSettings } from "@/lib/site/site-settings";
 
 const links = [
-  { href: "#colecciones", label: "Colecciones" },
+  // { href: "#colecciones", label: "Colecciones" },
   { href: "#catalogo", label: "Catálogo" },
   { href: "#atelier", label: "Atelier" },
-  { href: "#testimonios", label: "Clientes" },
-  { href: "#preguntas", label: "Preguntas" },
+  { href: "#testimonios", label: "Reseñas" },
+  { href: "#preguntas", label: "Preguntas Frecuentes" },
   { href: "#contacto", label: "Contacto" },
 ];
 
