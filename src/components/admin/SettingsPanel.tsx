@@ -4,11 +4,10 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import ImageManager from "@/components/admin/ImageManager";
-import { DEFAULT_SETTINGS, SiteSettings, loadSettings, publishSettings } from "@/lib/site/site-settings";
 import { deleteImages } from "@/lib/media/delete-images";
+import { DEFAULT_SETTINGS, SiteSettings, loadSettings, publishSettings } from "@/lib/site/site-settings";
 
 type Field = { key: keyof SiteSettings; label: string; hint?: string; long?: boolean };
-
 
 const SECTIONS: { title: string; fields: Field[] }[] = [
   {
@@ -35,6 +34,7 @@ const SECTIONS: { title: string; fields: Field[] }[] = [
       { key: "hero_eyebrow", label: "Texto pequeño superior" },
       { key: "hero_title", label: "Título", hint: "Pon entre *asteriscos* las palabras que quieras en dorado. Ej: Brillo que *cuenta* tu *historia*" },
       { key: "hero_text", label: "Descripción", long: true },
+      { key: "hero_ring_text", label: "Texto del anillo giratorio", hint: "Las palabras que giran en el círculo dorado del hero. Se repiten solas para dar la vuelta completa; usa \" · \" para separarlas. Déjalo vacío para quitar el anillo." },
       { key: "hero_cta1", label: "Botón principal" },
       { key: "hero_cta2", label: "Botón secundario" },
     ],
@@ -46,7 +46,7 @@ export default function SettingsPanel({ token }: { token: string | null }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
-  const [savedHero, setSavedHero] = useState("");
+  const [savedHero, setSavedHero] = useState(""); // imagen de portada guardada actualmente
 
   useEffect(() => {
     loadSettings(true).then((s) => {
@@ -72,8 +72,9 @@ export default function SettingsPanel({ token }: { token: string | null }) {
           : error.message
       );
     }
+    // Si la portada cambió, la anterior se borra de ImgBB (si fue subida desde aquí).
     if (savedHero && savedHero !== form.hero_image) deleteImages([savedHero], token);
-setSavedHero(form.hero_image);
+    setSavedHero(form.hero_image);
     publishSettings(form);
     setMsg("Configuración guardada ✓ Ya se ve en el sitio.");
   };
@@ -120,6 +121,9 @@ setSavedHero(form.hero_image);
                 onChange={(imgs) => setForm({ ...form, hero_image: imgs[0] ?? "" })}
                 token={token}
                 max={1}
+                onDiscard={(url) => {
+                  if (url !== savedHero) deleteImages([url], token);
+                }}
               />
               <span className="block text-xs text-white/35">Si la quitas, se usa la imagen original. Mejor horizontal y de buena calidad.</span>
             </div>

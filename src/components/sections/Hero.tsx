@@ -4,9 +4,7 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import SafeImage from "@/components/ui/SafeImage";
-import { parseTitle, useSiteSettings } from "@/lib/site/site-settings";
-
-
+import { parseTitle, ringText, useSiteSettings } from "@/lib/site/site-settings";
 
 const sparkles = Array.from({ length: 18 }, (_, i) => ({
   left: `${(i * 53) % 100}%`,
@@ -17,7 +15,8 @@ const sparkles = Array.from({ length: 18 }, (_, i) => ({
 
 export default function Hero() {
   const site = useSiteSettings();
-const words = parseTitle(site.hero_title);
+  const words = parseTitle(site.hero_title);
+  const ring = ringText(site.hero_ring_text);
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   const imgY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
@@ -38,6 +37,7 @@ const words = parseTitle(site.hero_title);
         <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-transparent to-ink-950/60" />
       </motion.div>
 
+      {ring && (
       <motion.svg
         style={{ rotate: ringRotate }}
         className="pointer-events-none absolute -right-40 top-1/2 hidden h-[640px] w-[640px] -translate-y-1/2 opacity-30 md:block"
@@ -49,9 +49,10 @@ const words = parseTitle(site.hero_title);
         <circle cx="100" cy="100" r="95" fill="none" stroke="#c4932a" strokeWidth="0.3" />
         <circle cx="100" cy="100" r="70" fill="none" stroke="#c4932a" strokeWidth="0.3" strokeDasharray="2 4" />
         <text fill="#e9c85c" fontSize="7" letterSpacing="5" className="font-serif">
-          <textPath href="#circ"> ORO 18K · DIAMANTES · ESMERALDAS · ORO 18K · DIAMANTES ·</textPath>
+          <textPath href="#circ" textLength="500" lengthAdjust="spacing">{ring}</textPath>
         </text>
       </motion.svg>
+      )}
 
       {sparkles.map((s, i) => (
         <span
@@ -105,17 +106,6 @@ const words = parseTitle(site.hero_title);
           <a href="#atelier" className="btn-ghost">{site.hero_cta2}</a>
         </motion.div>
       </motion.div>
-
-      <motion.a
-        href="#colecciones"
-        aria-label="Bajar"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 4 }}
-        className="absolute bottom-10 left-1/2 z-10 -translate-x-1/2"
-      >
-        
-      </motion.a>
     </section>
   );
 }

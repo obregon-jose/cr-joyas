@@ -19,30 +19,32 @@ export type SiteSettings = {
   hero_title: string; // las palabras entre *asteriscos* salen en dorado
   hero_text: string;
   hero_image: string;
+  hero_ring_text: string; // texto que gira en el anillo dorado; vacío = sin anillo
   hero_cta1: string;
   hero_cta2: string;
 };
 
 export const DEFAULT_SETTINGS: SiteSettings = {
-  brand_name: "CR JOYAS",
-  footer_text: "CR Joyas. Todos los derechos reservados.",
-  whatsapp: "573001234567",
+  brand_name: "CR Joyas",
+  footer_text: "CR Joyas Joyería. Todos los derechos reservados.",
+  whatsapp:  "573001234567",
   phone: "+57 300 123 4567",
-  email: "hola@aureliajoyeria.co",
+  email: "hola@CR Joyasjoyeria.co",
   address: "Cali, Valle del Cauca · Colombia",
   hours: "Lun – Sáb · 10:00 a 19:00",
   instagram: "",
-  hero_eyebrow: "Eleva tu esencia",
+  hero_eyebrow: "Colección Otoño 2026",
   hero_title: "Brillo que *cuenta* tu *historia*",
   hero_text:
     "Piezas únicas de alta joyería colombiana, forjadas a mano en oro de 18 quilates con diamantes y esmeraldas seleccionadas una a una.",
   hero_image: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1800&q=80",
+  hero_ring_text: "Oro 18k · Diamantes · Esmeraldas",
   hero_cta1: "Explorar catálogo",
   hero_cta2: "Nuestro atelier",
 };
 
 // Estos campos pueden quedar vacíos a propósito (se ocultan en el sitio).
-const OPTIONAL: (keyof SiteSettings)[] = ["instagram", "phone", "email", "address", "hours"];
+const OPTIONAL: (keyof SiteSettings)[] = ["instagram", "phone", "email", "address", "hours", "hero_ring_text"];
 
 function merge(stored: unknown): SiteSettings {
   const out = { ...DEFAULT_SETTINGS };
@@ -94,6 +96,18 @@ export function useSiteSettings(): SiteSettings {
     };
   }, []);
   return settings;
+}
+
+/**
+ * Texto del anillo del hero: se repite las veces necesarias para dar la vuelta completa al círculo,
+ * así queda parejo sin importar si el admin escribe una palabra o tres.
+ */
+export function ringText(raw: string): string {
+  const base = raw.replace(/\s+/g, " ").trim().toUpperCase();
+  if (!base) return "";
+  const unit = `${base} · `;
+  const times = Math.max(1, Math.round(58 / unit.length));
+  return unit.repeat(times).trimEnd();
 }
 
 /** Enlace de WhatsApp a partir de cualquier formato de número. */
