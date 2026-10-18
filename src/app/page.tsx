@@ -10,11 +10,13 @@ import Collections from "@/components/sections/Collections";
 import ProductGrid from "@/components/catalog/ProductGrid";
 import Atelier from "@/components/sections/Atelier";
 import Testimonials from "@/components/reviews/Testimonials";
-import Contact, { Footer } from "@/components/sections/Contact";
 import CartDrawer from "@/components/cart/CartDrawer";
 import WhatsAppFab from "@/components/layout/WhatsAppFab";
 import FloatingCart from "@/components/cart/FloatingCart";
-import Faq from "@/components/faq/Faq";
+import Faq from "@/components/sections/Faq";
+import Contact from "@/components/sections/Contact";
+import Footer from "@/components/layout/Footer";
+
 
 export default function Home() {
   const [category, setCategory] = useState("Todas");
