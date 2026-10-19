@@ -14,7 +14,7 @@ export type Filters = {
 };
 
 export const SORT_LABELS: Record<SortKey, string> = {
-  relevance: "Destacados primero",
+  relevance: "Destacados",
   newest: "Más recientes",
   price_asc: "Precio: menor a mayor",
   price_desc: "Precio: mayor a menor",
