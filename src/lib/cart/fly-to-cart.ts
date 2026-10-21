@@ -1,10 +1,9 @@
 export const FLY_EVENT = "cart-fly";
-export const ALERT_EVENT = "cart-alert";
+import { toast } from "@/lib/ui/toast";
 
-/** Muestra un aviso breve (toast) sobre el carrito, ej. "no hay más stock". */
+/** Aviso breve del carrito, ej. "no hay más stock" (usa el toast global). */
 export function cartAlert(message: string) {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent<string>(ALERT_EVENT, { detail: message }));
+  toast.info(message);
 }
 
 

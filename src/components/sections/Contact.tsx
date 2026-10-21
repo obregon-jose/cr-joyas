@@ -107,9 +107,7 @@ export default function Contact() {
             </h2>
 
             <p className="mt-6 max-w-md text-white/60">
-              ¿Una pieza a medida, un regalo o una asesoría
-              personalizada? Escríbenos y un experto te
-              responderá hoy.
+              Cuéntanos qué tienes en mente y encontremos juntos la pieza perfecta para ti o para alguien especial.
             </p>
 
             <a
