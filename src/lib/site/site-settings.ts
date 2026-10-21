@@ -14,6 +14,8 @@ export type SiteSettings = {
   address: string;
   hours: string;
   instagram: string;
+  facebook: string;
+  tiktok: string;
   // Hero
   hero_eyebrow: string;
   hero_title: string; // las palabras entre *asteriscos* salen en dorado
@@ -52,6 +54,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   address: "Cali, Valle del Cauca · Colombia",
   hours: "Lun – Sáb · 10:00 a 19:00",
   instagram: "",
+  facebook: "",
+  tiktok: "",
   hero_eyebrow: "Colección Otoño 2026",
   hero_title: "Brillo que *cuenta* tu *historia*",
   hero_text:
@@ -84,7 +88,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
 };
 
 // Estos campos pueden quedar vacíos a propósito (se ocultan en el sitio).
-const OPTIONAL: (keyof SiteSettings)[] = ["instagram", "phone", "email", "address", "hours", "hero_ring_text", "atelier_badge"];
+const OPTIONAL: (keyof SiteSettings)[] = ["instagram", "facebook", "tiktok", "phone", "email", "address", "hours", "hero_ring_text", "atelier_badge"];
 
 /** Quita vacíos y espacios sobrantes y respeta los límites de la cinta. */
 export function cleanMarquee(list: unknown[]): string[] {
@@ -180,6 +184,23 @@ export function ringText(raw: string): string {
   const unit = `${base} · `;
   const times = Math.max(1, Math.round(58 / unit.length));
   return unit.repeat(times).trimEnd();
+}
+
+export type Network = "instagram" | "facebook" | "tiktok";
+
+/**
+ * Convierte lo que escriba el admin en un enlace válido: acepta la URL completa, "usuario" o "@usuario".
+ * Devuelve "" si está vacío o si no es un enlace seguro (solo http/https).
+ */
+export function socialLink(network: Network, raw: string): string {
+  const v = raw.trim();
+  if (!v) return "";
+  if (/^https?:\/\//i.test(v)) return v;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return ""; // javascript:, data:, etc.
+  if (/^(www\.)?[a-z0-9-]+\.[a-z]{2,}/i.test(v) && v.includes("/")) return `https://${v}`; // "instagram.com/cr.joyas"
+  const user = v.replace(/^@/, "").replace(/[^\w.]/g, "");
+  if (!user) return "";
+  return network === "tiktok" ? `https://www.tiktok.com/@${user}` : `https://www.${network}.com/${user}`;
 }
 
 /** Enlace de WhatsApp a partir de cualquier formato de número. */

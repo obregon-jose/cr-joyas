@@ -40,7 +40,9 @@ const SECTIONS: { title: string; fields: Field[] }[] = [
       { key: "email", label: "Correo visible" },
       { key: "address", label: "Dirección / ciudad" },
       { key: "hours", label: "Horario" },
-      { key: "instagram", label: "Enlace de Instagram", hint: "Pega la URL completa. Si lo dejas vacío, el ícono se oculta." },
+      { key: "instagram", label: "Instagram", hint: "Pega el enlace o escribe solo el usuario (ej: @crjoyas). Si lo dejas vacío, el ícono se oculta." },
+      { key: "facebook", label: "Facebook", hint: "Enlace de tu página o solo el nombre de usuario. Vacío = sin ícono." },
+      { key: "tiktok", label: "TikTok", hint: "Enlace o usuario (ej: @crjoyas). Vacío = sin ícono." },
     ],
   },
   {
