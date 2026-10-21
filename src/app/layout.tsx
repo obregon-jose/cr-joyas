@@ -4,6 +4,7 @@ import { CartProvider } from "@/lib/cart/cart";
 import Toaster from "@/components/ui/Toaster";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: "CR Joyas · Alta joyería colombiana",
   description:
     "Anillos, collares, aretes y pulseras en oro 18k, diamantes y esmeraldas colombianas. Piezas únicas hechas a mano.",

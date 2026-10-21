@@ -7,10 +7,11 @@ type Props = {
   src: string;
   alt: string;
   className?: string;
+  priority?: boolean; // foto principal: se descarga de inmediato en vez de esperar al scroll
 };
 
 // Imagen con fallback elegante si la URL (ImgBB / Unsplash) falla.
-export default function SafeImage({ src, alt, className = "" }: Props) {
+export default function SafeImage({ src, alt, className = "", priority = false }: Props) {
   const [failed, setFailed] = useState(false);
 
   if (failed || !src) {
@@ -29,7 +30,8 @@ export default function SafeImage({ src, alt, className = "" }: Props) {
     <img
       src={src}
       alt={alt}
-      loading="lazy"
+      loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : undefined}
       onError={() => setFailed(true)}
       className={className}
     />

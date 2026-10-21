@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion, useInView } from "framer-motion";
 import { Loader2, Percent, SlidersHorizontal, X } from "lucide-react";
 import { onSale } from "@/lib/catalog/promo";
 import Reveal from "@/components/ui/Reveal";
 import ProductCard from "@/components/catalog/ProductCard";
-import ProductModal from "@/components/catalog/ProductModal";
+import { useRouter } from "next/navigation";
+import { productPath } from "@/lib/catalog/product-url";
 import FilterPanel from "@/components/catalog/FilterPanel";
 import SortMenu from "@/components/catalog/SortMenu1";
 import { useProducts } from "@/lib/catalog/use-products";
@@ -40,7 +41,7 @@ function Skeleton() {
 
 export default function ProductGrid({ category, setCategory }: Props) {
   const { products, loading } = useProducts();
-  const [selected, setSelected] = useState<Product | null>(null);
+  const router = useRouter();
   const { order, hidden } = useCategories();
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -75,6 +76,12 @@ export default function ProductGrid({ category, setCategory }: Props) {
     JSON.stringify([category, filters])
   );
   const visibleProducts = useMemo(() => filtered.slice(0, visible), [filtered, visible]);
+
+  // Con el navegador libre, se van precargando las fichas de las piezas a la vista: al tocar una ya está lista.
+  useEffect(() => {
+    const t = window.setTimeout(() => visibleProducts.slice(0, 12).forEach((p) => router.prefetch(productPath(p))), 800);
+    return () => window.clearTimeout(t);
+  }, [visibleProducts, router]);
 
   const activeCount = countActive(filters) + (category !== "Todas" ? 1 : 0);
 
@@ -187,7 +194,7 @@ export default function ProductGrid({ category, setCategory }: Props) {
           ) : (
             <AnimatePresence mode="popLayout">
               {visibleProducts.map((p) => (
-                <ProductCard key={p.id} product={p} onOpen={setSelected} />
+                <ProductCard key={p.id} product={p} onOpen={(p) => router.push(productPath(p))} />
               ))}
             </AnimatePresence>
           )}
@@ -249,7 +256,6 @@ export default function ProductGrid({ category, setCategory }: Props) {
         onClear={clearAll}
       />
 
-      <ProductModal product={selected} onClose={() => setSelected(null)} />
     </section>
   );
 }

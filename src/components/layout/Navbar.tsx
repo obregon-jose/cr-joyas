@@ -8,11 +8,11 @@ import { useSiteSettings } from "@/lib/site/site-settings";
 
 const links = [
   // { href: "#colecciones", label: "Colecciones" },
-  { href: "#catalogo", label: "Catálogo" },
-  { href: "#atelier", label: "Atelier" },
-  { href: "#testimonios", label: "Reseñas" },
-  { href: "#preguntas", label: "Preguntas Frecuentes" },
-  { href: "#contacto", label: "Contacto" },
+  { href: "/#catalogo", label: "Catálogo" },
+  { href: "/#atelier", label: "Atelier" },
+  { href: "/#testimonios", label: "Reseñas" },
+  { href: "/#preguntas", label: "Preguntas Frecuentes" },
+  { href: "/#contacto", label: "Contacto" },
 ];
 
 export default function Navbar() {
@@ -47,7 +47,7 @@ export default function Navbar() {
         }`}
       >
         <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-          <a href="#inicio" className="group flex items-center gap-3">
+          <a href="/#inicio" className="group flex items-center gap-3">
             <Gem className="h-6 w-6 text-gold-300 transition-transform duration-700 group-hover:rotate-[360deg]" strokeWidth={1.2} />
             <span className="gold-text font-serif text-2xl tracking-[0.3em]">{site.brand_name.toUpperCase()}</span>
           </a>

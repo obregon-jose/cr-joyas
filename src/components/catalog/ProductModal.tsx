@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ShieldCheck, ShoppingBag, Truck, X } from "lucide-react";
+import { ShieldCheck, ShoppingBag, Truck, X, ArrowUpRight } from "lucide-react";
 import ProductGallery from "@/components/catalog/ProductGallery";
 import { StarsDisplay } from "@/components/ui/StarRating";
 import Price, { DiscountBadge } from "@/components/catalog/Price";
@@ -10,7 +10,8 @@ import { summarize, usePublicReviews } from "@/lib/reviews/reviews";
 import { getImages } from "@/lib/catalog/images";
 import { Product } from "@/lib/types";
 import { useCart } from "@/lib/cart/cart";
-
+import Link from "next/link";
+import { productPath } from "@/lib/catalog/product-url"; 
 type Props = { product: Product | null; onClose: () => void };
 
 export default function ProductModal({ product, onClose }: Props) {
@@ -101,6 +102,7 @@ export default function ProductModal({ product, onClose }: Props) {
                 <ShoppingBag className="h-4 w-4" /> Agregar al carrito
               </motion.button>
               <div className="flex flex-wrap gap-6 text-xs text-white/50">
+              <Link href={productPath(product)} className="flex w-fit items-center gap-1.5 text-sm text-gold-300 transition hover:text-gold-200">Ver ficha completa<ArrowUpRight className="h-4 w-4" /></Link>
                 <span className="flex items-center gap-2"><Truck className="h-4 w-4 text-gold-400" /> Envío asegurado</span>
                 <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-gold-400" /> Certificado incluido</span>
               </div>

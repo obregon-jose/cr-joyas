@@ -15,6 +15,11 @@ type CartCtx = {
   total: number;
   setOpen: (v: boolean) => void;
   add: (p: Product, from?: HTMLElement) => boolean;
+  /** "Comprar ahora": deja la pieza en el carrito (sin sumar otra si ya estaba) y abre el carrito directo en el pedido. */
+  buyNow: (p: Product) => boolean;
+  /** true cuando el carrito se abrió con "Comprar ahora" y debe saltar a los datos de envío. */
+  checkoutRequested: boolean;
+  clearCheckoutRequest: () => void;
   remove: (id: string) => void;
   setQty: (id: string, qty: number) => void;
   clear: () => void;
@@ -28,6 +33,7 @@ const KEY = "aurelia-cart-v1";
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [open, setOpen] = useState(false);
+  const [checkoutRequested, setCheckoutRequested] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -80,6 +86,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
     [commit]
   );
+
+  const buyNow = useCallback(
+    (p: Product): boolean => {
+      const inCart = itemsRef.current.some((i) => i.product.id === p.id);
+      if (!inCart && !add(p)) return false; // sin stock: ya se avisó con el toast
+      setCheckoutRequested(true);
+      setOpen(true);
+      return true;
+    },
+    [add]
+  );
+
+  const clearCheckoutRequest = useCallback(() => setCheckoutRequested(false), []);
 
   const remove = useCallback(
     (id: string) => commit(itemsRef.current.filter((i) => i.product.id !== id)),
@@ -154,6 +173,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       open,
       setOpen,
       add,
+      buyNow,
+      checkoutRequested,
+      clearCheckoutRequest,
       remove,
       setQty,
       clear,
@@ -161,7 +183,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       count: items.reduce((s, i) => s + i.qty, 0),
       total: items.reduce((s, i) => s + i.qty * finalPrice(i.product), 0),
     }),
-    [items, open, add, remove, setQty, clear, validate]
+    [items, open, add, buyNow, checkoutRequested, clearCheckoutRequest, remove, setQty, clear, validate]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

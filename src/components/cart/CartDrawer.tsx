@@ -26,7 +26,7 @@ type PlacedOrder = {
 };
 
 export default function CartDrawer() {
-  const { items, open, setOpen, total, remove, setQty, clear, validate } = useCart();
+  const { items, open, setOpen, total, remove, setQty, clear, validate, checkoutRequested, clearCheckoutRequest } = useCart();
   const [step, setStep] = useState<Step>("cart");
   const [form, setForm] = useState(empty);
   const [sending, setSending] = useState(false);
@@ -64,6 +64,14 @@ export default function CartDrawer() {
     setNotices([]);
     setStep("checkout");
   };
+
+  // "Comprar ahora": el carrito se abre y salta directo a los datos de envío (después de revisar precios y stock).
+  useEffect(() => {
+    if (!open || !checkoutRequested) return;
+    clearCheckoutRequest();
+    goCheckout();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, checkoutRequested]);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -334,7 +342,11 @@ export default function CartDrawer() {
                     <button
                       onClick={() => {
                         setOpen(false);
-                        setTimeout(() => document.getElementById("preguntas")?.scrollIntoView({ behavior: "smooth" }), 350);
+                        setTimeout(() => {
+                          const el = document.getElementById("preguntas");
+                          if (el) el.scrollIntoView({ behavior: "smooth" });
+                          else window.location.href = "/#preguntas"; // en la ficha de un producto, vuelve al inicio
+                        }, 350);
                       }}
                       className="w-full text-center text-xs text-white/45 underline-offset-4 transition hover:text-gold-200 hover:underline"
                     >
