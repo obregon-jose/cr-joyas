@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { StarsDisplay, StarsInput } from "@/components/ui/StarRating";
 import ImageManager from "@/components/admin/ImageManager";
 import { deleteImages } from "@/lib/media/delete-images";
+import { toast } from "@/lib/ui/toast";
 
 type Status = "pendiente" | "aprobada" | "rechazada";
 
@@ -36,7 +37,6 @@ export default function ReviewsPanel({ token }: { token: string | null }) {
   const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
   const [tab, setTab] = useState<Status>("pendiente");
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState("");
   const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {
@@ -46,7 +46,7 @@ export default function ReviewsPanel({ token }: { token: string | null }) {
       supabase.from("products").select("id,name").order("name"),
     ]);
     if (r.error) {
-      setMsg(/reviews/i.test(r.error.message) ? "Falta ejecutar la migración 009 en Supabase (tabla reviews)." : r.error.message);
+      toast.error(/reviews/i.test(r.error.message) ? "Falta ejecutar la migración 009 en Supabase (tabla reviews)." : r.error.message);
     } else {
       setRows((r.data as Row[]) ?? []);
     }
@@ -65,16 +65,15 @@ export default function ReviewsPanel({ token }: { token: string | null }) {
   }, [rows]);
 
   const setStatus = async (id: string, status: Status) => {
-    setMsg("");
     const { error } = await supabase!.from("reviews").update({ status, moderated_at: new Date().toISOString() }).eq("id", id);
-    if (error) return setMsg(error.message);
+    if (error) return toast.error(error.message);
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, status } : r)));
   };
 
   const remove = async (r: Row) => {
     if (!confirm("¿Eliminar esta reseña definitivamente? Sus fotos también se borrarán.")) return;
     const { error } = await supabase!.from("reviews").delete().eq("id", r.id);
-    if (error) return setMsg(error.message);
+    if (error) return toast.error(error.message);
     deleteImages(r.images ?? [], token);
     setRows((rs) => rs.filter((x) => x.id !== r.id));
   };
@@ -115,7 +114,6 @@ export default function ReviewsPanel({ token }: { token: string | null }) {
         />
       )}
 
-      {msg && <p className="text-sm text-gold-300">{msg}</p>}
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -193,12 +191,10 @@ function NewReview({ products, token, onSaved }: { products: { id: string; name:
   const [productId, setProductId] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    if (rating < 0.5) return setError("Elige la calificación");
+    if (rating < 0.5) return toast.error("Elige la calificación");
     setSaving(true);
     const product = products.find((p) => p.id === productId);
     const { error: err } = await supabase!.from("reviews").insert({
@@ -214,7 +210,7 @@ function NewReview({ products, token, onSaved }: { products: { id: string; name:
       moderated_at: new Date().toISOString(),
     });
     setSaving(false);
-    if (err) return setError(err.message);
+    if (err) return toast.error(err.message);
     onSaved();
   };
 
@@ -231,7 +227,6 @@ function NewReview({ products, token, onSaved }: { products: { id: string; name:
       </div>
       <textarea className="input" rows={4} placeholder="Comentario" value={comment} onChange={(e) => setComment(e.target.value)} required minLength={10} maxLength={1000} />
       <ImageManager images={images} onChange={setImages} token={token} max={5} />
-      {error && <p className="text-sm text-rose-gold">{error}</p>}
       <button disabled={saving} className="btn-gold w-full disabled:opacity-50">{saving ? "Guardando..." : "Publicar reseña"}</button>
     </form>
   );

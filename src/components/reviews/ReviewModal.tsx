@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Camera, Check, ImagePlus, KeyRound, Loader2, Trash2, X } from "lucide-react";
+import { toast } from "@/lib/ui/toast";
 import SafeImage from "@/components/ui/SafeImage";
 import { StarsInput } from "@/components/ui/StarRating";
 import { Reviewable, claimOrder, loadProfile, saveProfile, submitReview, uploadReviewImage } from "@/lib/reviews/reviews";
@@ -67,7 +68,6 @@ function WriteForm({ options, onClose, onDone }: { options: Reviewable[]; onClos
   const [uploading, setUploading] = useState(0);
   const [photoErrors, setPhotoErrors] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -99,14 +99,13 @@ function WriteForm({ options, onClose, onDone }: { options: Reviewable[]; onClos
     e.preventDefault();
     if (!valid || !selected || sending || uploading > 0) return;
     setSending(true);
-    setError("");
     try {
       await submitReview({ productId: selected.product_id, rating, name: name.trim(), comment: comment.trim(), images: photos });
       saveProfile({ name: name.trim() });
       setDone(true);
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No pudimos enviar tu reseña. Inténtalo de nuevo.");
+      toast.error(err instanceof Error ? err.message : "No pudimos enviar tu reseña. Inténtalo de nuevo.");
     } finally {
       setSending(false);
     }
@@ -226,7 +225,6 @@ function WriteForm({ options, onClose, onDone }: { options: Reviewable[]; onClos
       </label>
       <p className="-mt-3 text-xs text-white/35">Así aparecerá en tu reseña. Puedes cambiarlo (por ejemplo, usar solo tu nombre y la inicial del apellido).</p>
 
-      {error && <p className="text-sm text-rose-gold">{error}</p>}
       <button disabled={!valid || sending || uploading > 0} className="btn-gold w-full disabled:cursor-not-allowed disabled:opacity-40">
         {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Publicar reseña"}
       </button>
@@ -240,21 +238,19 @@ function ClaimForm({ onClose, onDone }: { onClose: () => void; onDone: () => voi
   const [order, setOrder] = useState("");
   const [phone, setPhone] = useState("");
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
   const [ok, setOk] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const n = Number(order.replace(/\D/g, ""));
-    if (!n) return setError("Escribe el número de tu pedido");
+    if (!n) return toast.error("Escribe el número de tu pedido");
     setSending(true);
-    setError("");
     try {
       await claimOrder(n, phone);
       setOk(true);
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No pudimos vincular el pedido");
+      toast.error(err instanceof Error ? err.message : "No pudimos vincular el pedido");
     } finally {
       setSending(false);
     }
@@ -283,7 +279,6 @@ function ClaimForm({ onClose, onDone }: { onClose: () => void; onDone: () => voi
       <input className="input" inputMode="numeric" placeholder="Número de pedido (ej. 1042)" value={order} onChange={(e) => setOrder(e.target.value)} required />
       <input className="input" type="tel" autoComplete="tel" placeholder="Teléfono con el que compraste" value={phone} onChange={(e) => setPhone(e.target.value)} required />
       <p className="text-xs text-white/35">Las reseñas se habilitan cuando confirmamos el pago de tu pedido.</p>
-      {error && <p className="text-sm text-rose-gold">{error}</p>}
       <button disabled={sending} className="btn-gold w-full disabled:opacity-50">
         {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Vincular pedido"}
       </button>

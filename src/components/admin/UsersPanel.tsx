@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, ShieldCheck, UserCheck, UserX } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { toast } from "@/lib/ui/toast";
 
 type UserRow = {
   user_id: string;
@@ -21,7 +22,9 @@ export default function UsersPanel() {
   const [me, setMe] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const setMsg = (m: { ok: boolean; text: string } | null) => {
+    if (m) (m.ok ? toast.success : toast.error)(m.text);
+  };
 
   const load = useCallback(async () => {
     if (!supabase) return;
@@ -65,8 +68,6 @@ export default function UsersPanel() {
           y recarga esta lista.
         </p>
       </div>
-
-      {msg && <p className={`text-sm ${msg.ok ? "text-gold-300" : "text-rose-gold"}`}>{msg.text}</p>}
       {loading && <Loader2 className="h-5 w-5 animate-spin text-gold-300" />}
 
       <div className="space-y-3">
@@ -113,7 +114,7 @@ export default function UsersPanel() {
             </div>
           );
         })}
-        {!loading && rows.length === 0 && !msg && <p className="text-white/40">No hay cuentas todavía.</p>}
+        {!loading && rows.length === 0 && <p className="text-white/40">No hay cuentas todavía.</p>}
       </div>
 
       <button onClick={() => { setLoading(true); load(); }} className="btn-ghost !px-5 !py-2.5">

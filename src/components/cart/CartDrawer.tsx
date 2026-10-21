@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/lib/ui/toast";
 import { finalPrice, onSale } from "@/lib/catalog/promo";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -29,7 +30,6 @@ export default function CartDrawer() {
   const [step, setStep] = useState<Step>("cart");
   const [form, setForm] = useState(empty);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
   const [notices, setNotices] = useState<string[]>([]);
   const [checking, setChecking] = useState(false);
@@ -105,7 +105,6 @@ export default function CartDrawer() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setSending(true);
     try {
       // Última revisión: si un precio o el stock cambió mientras llenaba los datos, vuelve al carrito con el aviso.
@@ -123,7 +122,7 @@ export default function CartDrawer() {
     } catch (err) {
       const text = err instanceof Error ? err.message : "";
       // Los mensajes del servidor (sin stock, pieza no disponible) son claros para el cliente.
-      setError(
+      toast.error(
         /stock|disponible|carrito|Cantidad|Faltan/i.test(text)
           ? text
           : "No pudimos registrar tu pedido. Inténtalo de nuevo."
@@ -262,7 +261,6 @@ export default function CartDrawer() {
                     <p className="text-xs text-white/40">
                       Tu pedido queda registrado en nuestro sistema. Después podrás enviarlo también por WhatsApp (opcional) para agilizar la confirmación del pago y el envío asegurado.
                     </p>
-                    {error && <p className="text-sm text-rose-gold">{error}</p>}
                   </motion.form>
                 )}
 

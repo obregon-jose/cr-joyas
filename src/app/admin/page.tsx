@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff, Loader2, LogOut, MessageCircle, Pencil, Trash2, X } from "lucide-react";
+import { toast } from "@/lib/ui/toast";
 import { supabase } from "@/lib/supabase";
 import { formatCOP } from "@/lib/format";
 import { Category, Order, Product } from "@/lib/types";
@@ -45,7 +46,6 @@ export default function AdminPage() {
   const [legacyMode, setLegacyMode] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [msg, setMsg] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [form, setForm] = useState<Form>(blank);
@@ -160,16 +160,14 @@ export default function AdminPage() {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            setMsg("");
             const { error } = await supabase!.auth.signInWithPassword({ email, password });
-            if (error) setMsg("Credenciales incorrectas");
+            if (error) toast.error("Credenciales incorrectas");
           }}
           className="w-full max-w-sm space-y-4 rounded-3xl border border-gold-400/20 bg-ink-900 p-8"
         >
           <h1 className="gold-text text-center font-serif text-3xl tracking-[0.2em]">ADMIN</h1>
           <input className="input" type="email" placeholder="Correo" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <input className="input" type="password" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          {msg && <p className="text-sm text-rose-gold">{msg}</p>}
           <button className="btn-gold w-full">Entrar</button>
         </form>
       </div>
@@ -205,7 +203,6 @@ export default function AdminPage() {
       promoStart: toDateInput(p.promo_start),
       promoEnd: toDateInput(p.promo_end),
     });
-    setMsg("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -215,15 +212,14 @@ export default function AdminPage() {
     setOriginalImages([]);
     setEditingId(null);
     setForm(blank);
-    setMsg("");
   };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.images.length === 0) return setMsg("Sube al menos una imagen");
+    if (form.images.length === 0) return toast.error("Sube al menos una imagen");
     const pct = form.discount.trim() === "" ? null : Number(form.discount);
-    if (pct !== null && (!Number.isInteger(pct) || pct < 1 || pct > 90)) return setMsg("El descuento debe ser un número entero entre 1 y 90");
-    if (pct !== null && form.promoStart && form.promoEnd && form.promoStart > form.promoEnd) return setMsg("La fecha final de la promoción no puede ser anterior a la inicial");
+    if (pct !== null && (!Number.isInteger(pct) || pct < 1 || pct > 90)) return toast.error("El descuento debe ser un número entero entre 1 y 90");
+    if (pct !== null && form.promoStart && form.promoEnd && form.promoStart > form.promoEnd) return toast.error("La fecha final de la promoción no puede ser anterior a la inicial");
     setSaving(true);
     const payload = {
       name: form.name.trim(),
@@ -246,12 +242,12 @@ export default function AdminPage() {
     setSaving(false);
     if (error) {
       const missingColumn = /(active|images|discount_percent|promo_)/i.test(error.message) && /column/i.test(error.message);
-      return setMsg(missingColumn ? "Falta ejecutar una migración en Supabase (001 columna active, 005 columna images, 011 promociones)." : error.message);
+      return toast.error(missingColumn ? "Falta ejecutar una migración en Supabase (001 columna active, 005 columna images, 011 promociones)." : error.message);
     }
     // Las imágenes que se quitaron del producto se borran de ImgBB para no llenar el servidor.
     deleteImages(originalImages.filter((u) => !form.images.includes(u)), token);
     setOriginalImages([]);
-    setMsg(editingId ? "Cambios guardados ✓" : "Producto creado ✓");
+    toast.success(editingId ? "Cambios guardados ✓" : "Producto creado ✓");
     setEditingId(null);
     setForm(blank);
     load();
@@ -259,7 +255,7 @@ export default function AdminPage() {
 
   const toggleActive = async (p: Product) => {
     const { error } = await supabase!.from("products").update({ active: p.active === false }).eq("id", p.id);
-    if (error) return setMsg(error.message);
+    if (error) return toast.error(error.message);
     load();
   };
 
@@ -267,7 +263,7 @@ export default function AdminPage() {
     if (!confirm("¿Eliminar este producto definitivamente? Si solo quieres ocultarlo, usa el ojo (pausar).")) return;
     const removed = products.find((p) => p.id === id);
     const { error: delErr } = await supabase!.from("products").delete().eq("id", id);
-    if (delErr) return setMsg(delErr.message);
+    if (delErr) return toast.error(delErr.message);
     if (removed) deleteImages(getImages(removed), token); // el producto ya no existe: sus fotos tampoco
     if (editingId === id) {
       setOriginalImages([]);
@@ -278,14 +274,16 @@ export default function AdminPage() {
   };
 
   const setStatus = async (id: string, status: string) => {
-    await supabase!.from("orders").update({ status }).eq("id", id);
+    const { error } = await supabase!.from("orders").update({ status }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Estado del pedido actualizado ✓");
     load();
   };
 
   return (
     <div className="mx-auto max-w-6xl space-y-14 px-6 py-12">
       <header className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="gold-text font-serif text-4xl">Panel Aurelia</h1>
+        <h1 className="gold-text font-serif text-4xl">Panel {site.brand_name}</h1>
         <div className="flex max-w-full flex-wrap items-center gap-3">
           <div className="flex max-w-full overflow-x-auto rounded-full border border-white/10 p-1 text-xs uppercase tracking-widest">
             {(
@@ -374,7 +372,6 @@ export default function AdminPage() {
               <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Visible en la tienda
             </label>
           </div>
-          {msg && <p className="text-sm text-gold-300">{msg}</p>}
           <button disabled={saving} className="btn-gold w-full disabled:opacity-50">
             {saving ? "Guardando..." : editingId ? "Guardar cambios" : "Crear producto"}
           </button>

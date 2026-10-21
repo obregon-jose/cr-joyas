@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, Loader2, Plus, Trash2 } from "lucide-react";
+import { toast } from "@/lib/ui/toast";
 import { supabase } from "@/lib/supabase";
 import ImageManager from "@/components/admin/ImageManager";
 import { deleteImages } from "@/lib/media/delete-images";
@@ -79,7 +80,6 @@ export default function SettingsPanel({ token }: { token: string | null }) {
   const [form, setForm] = useState<SiteSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
   const [saved, setSaved] = useState(pickMedia(DEFAULT_SETTINGS)); // imágenes guardadas actualmente (para borrar las reemplazadas)
 
   useEffect(() => {
@@ -94,14 +94,13 @@ export default function SettingsPanel({ token }: { token: string | null }) {
     e.preventDefault();
     if (!supabase) return;
     setSaving(true);
-    setMsg("");
     const clean: SiteSettings = { ...form, marquee_items: cleanMarquee(form.marquee_items), atelier_stats: cleanStats(form.atelier_stats) };
     const { error } = await supabase
       .from("site_settings")
       .upsert({ id: 1, data: clean, updated_at: new Date().toISOString() });
     setSaving(false);
     if (error) {
-      return setMsg(
+      return toast.error(
         /site_settings/i.test(error.message)
           ? "Falta ejecutar la migración 006 en Supabase (tabla site_settings)."
           : error.message
@@ -112,7 +111,7 @@ export default function SettingsPanel({ token }: { token: string | null }) {
     setSaved(pickMedia(form));
     setForm(clean);
     publishSettings(clean);
-    setMsg("Configuración guardada ✓ Ya se ve en el sitio.");
+    toast.success("Configuración guardada ✓ Ya se ve en el sitio.");
   };
 
   const setItems = (marquee_items: string[]) => setForm((f) => ({ ...f, marquee_items }));
@@ -287,7 +286,6 @@ export default function SettingsPanel({ token }: { token: string | null }) {
         </button>
       </section>
 
-      {msg && <p className="text-sm text-gold-300">{msg}</p>}
       <button disabled={saving} className="btn-gold w-full disabled:opacity-50">
         {saving ? "Guardando..." : "Guardar configuración"}
       </button>

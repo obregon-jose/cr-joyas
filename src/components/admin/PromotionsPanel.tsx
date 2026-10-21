@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { formatCOP } from "@/lib/format";
 import { Product } from "@/lib/types";
 import { finalPrice, fromDateInput, promoRange, promoStatus, PromoStatus, toDateInput } from "@/lib/catalog/promo";
+import { toast } from "@/lib/ui/toast";
 
 type Props = { products: Product[]; categories: string[]; onChanged: () => void };
 
@@ -19,7 +20,6 @@ const STATUS_STYLE: Record<PromoStatus, string> = {
 type Scope = "all" | "category" | "pick";
 
 export default function PromotionsPanel({ products, categories, onChanged }: Props) {
-  const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<"todas" | PromoStatus>("todas");
   const [editing, setEditing] = useState<string | null>(null);
@@ -61,14 +61,13 @@ export default function PromotionsPanel({ products, categories, onChanged }: Pro
   const run = async (ids: string[], patch: Record<string, unknown>, ok: string) => {
     if (!supabase || ids.length === 0) return;
     setBusy(true);
-    setMsg("");
     const { error } = await supabase.from("products").update(patch).in("id", ids);
     setBusy(false);
     if (error) {
       const missing = /discount_percent|promo_/i.test(error.message);
-      return setMsg(missing ? "Falta ejecutar la migración 011_promociones.sql en Supabase." : error.message);
+      return toast.error(missing ? "Falta ejecutar la migración 011_promociones.sql en Supabase." : error.message);
     }
-    setMsg(ok);
+    toast.success(ok);
     onChanged();
   };
 
@@ -81,7 +80,7 @@ export default function PromotionsPanel({ products, categories, onChanged }: Pro
   const apply = async () => {
     if (!valid) return;
     const ids = targets.map((p) => p.id);
-    if (ids.length === 0) return setMsg("Elige al menos una pieza.");
+    if (ids.length === 0) return toast.error("Elige al menos una pieza.");
     await run(ids, patchFromForm(), `Promoción aplicada a ${ids.length} ${ids.length === 1 ? "pieza" : "piezas"} ✓`);
     setPicked([]);
     reset();
@@ -98,7 +97,6 @@ export default function PromotionsPanel({ products, categories, onChanged }: Pro
     setPct(String(p.discount_percent ?? ""));
     setStart(toDateInput(p.promo_start));
     setEnd(toDateInput(p.promo_end));
-    setMsg("");
   };
 
   const clearPromo = (ids: string[], ok: string) =>
@@ -174,7 +172,6 @@ export default function PromotionsPanel({ products, categories, onChanged }: Pro
           </p>
         )}
         {pct && !valid && <p className="text-xs text-rose-gold">El descuento debe ser un número entero entre 1 y 90, y la fecha final no puede ser anterior a la inicial.</p>}
-        {msg && !editing && <p className="text-sm text-gold-300">{msg}</p>}
 
         <button onClick={apply} disabled={!valid || busy || targets.length === 0} className="btn-gold w-full disabled:cursor-not-allowed disabled:opacity-40">
           {busy && !editing ? "Aplicando..." : "Aplicar promoción"}
@@ -237,7 +234,6 @@ export default function PromotionsPanel({ products, categories, onChanged }: Pro
               {isEditing && (
                 <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
                   {fields}
-                  {msg && <p className="text-sm text-gold-300">{msg}</p>}
                   <button onClick={saveEdit} disabled={!valid || busy} className="btn-gold !px-6 !py-2.5 disabled:opacity-40">
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar cambios"}
                   </button>

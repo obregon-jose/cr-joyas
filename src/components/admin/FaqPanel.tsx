@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, Eye, EyeOff, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Faq, FAQ_TOPICS } from "@/lib/site/faq";
+import { toast } from "@/lib/ui/toast";
 
 const blank = { topic: FAQ_TOPICS[0], question: "", answer: "" };
 
@@ -14,7 +15,9 @@ export default function FaqPanel() {
   const [form, setForm] = useState(blank);
   const [editing, setEditing] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const setMsg = (m: { ok: boolean; text: string } | null) => {
+    if (m) (m.ok ? toast.success : toast.error)(m.text);
+  };
 
   const load = useCallback(async () => {
     if (!supabase) return;
@@ -115,7 +118,6 @@ export default function FaqPanel() {
         </select>
         <input className="input" placeholder="Pregunta" value={form.question} onChange={(e) => setForm({ ...form, question: e.target.value })} maxLength={200} required />
         <textarea className="input" rows={5} placeholder="Respuesta" value={form.answer} onChange={(e) => setForm({ ...form, answer: e.target.value })} maxLength={1500} required />
-        {msg && <p className={`text-sm ${msg.ok ? "text-gold-300" : "text-rose-gold"}`}>{msg.text}</p>}
         <button disabled={busy} className="btn-gold w-full disabled:opacity-50">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : editing ? null : <Plus className="h-4 w-4" />}
           {editing ? "Guardar cambios" : "Agregar pregunta"}
@@ -153,7 +155,7 @@ export default function FaqPanel() {
             <button onClick={() => remove(f)} aria-label="Eliminar" title="Eliminar" className="rounded-full p-2 text-white/40 hover:text-rose-gold"><Trash2 className="h-4 w-4" /></button>
           </div>
         ))}
-        {!loading && rows.length === 0 && !msg && <p className="text-white/40">Aún no hay preguntas.</p>}
+        {!loading && rows.length === 0 && <p className="text-white/40">Aún no hay preguntas.</p>}
       </div>
     </section>
   );
