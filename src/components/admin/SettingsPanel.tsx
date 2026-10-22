@@ -80,7 +80,29 @@ export default function SettingsPanel({ token }: { token: string | null }) {
   const [form, setForm] = useState<SiteSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pending, setPending] = useState<number | null>(null); // imágenes que ImgBB no pudo borrar (null = no disponible)
+  const [retrying, setRetrying] = useState(false);
   const [saved, setSaved] = useState(pickMedia(DEFAULT_SETTINGS)); // imágenes guardadas actualmente (para borrar las reemplazadas)
+
+  const countPending = async () => {
+    if (!supabase) return;
+    const { count, error } = await supabase.from("image_deletes").select("url", { count: "exact", head: true }).eq("pending", true);
+    setPending(error ? null : count ?? 0); // sin la migración 014 no se muestra la sección
+  };
+
+  const retry = async () => {
+    setRetrying(true);
+    const r = await deleteImages([], token, { retryPending: true });
+    setRetrying(false);
+    if (r.failed === 0 && r.deleted > 0) toast.success(`${r.deleted === 1 ? "1 foto borrada" : `${r.deleted} fotos borradas`} del servidor ✓`);
+    else if (r.failed === 0) toast.info("No había nada pendiente por borrar.");
+    countPending();
+  };
+
+  useEffect(() => {
+    countPending();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     loadSettings(true).then((s) => {
@@ -285,6 +307,26 @@ export default function SettingsPanel({ token }: { token: string | null }) {
           <Plus className="h-4 w-4" /> Agregar mensaje
         </button>
       </section>
+
+      {pending !== null && (
+        <section className="space-y-3 rounded-3xl border border-white/10 bg-ink-900 p-6">
+          <h3 className="eyebrow">Imágenes</h3>
+          <p className="text-xs text-white/35">
+            Cuando reemplazas o eliminas una foto, también se borra del servidor de imágenes. Si ese borrado falla, la foto queda pendiente
+            (no se ve en la tienda, pero ocupa espacio) y puedes reintentarlo aquí.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm text-white/60">
+              {pending === 0 ? "No hay fotos pendientes." : `${pending} ${pending === 1 ? "foto pendiente" : "fotos pendientes"} por borrar.`}
+            </span>
+            {pending > 0 && (
+              <button type="button" onClick={retry} disabled={retrying} className="btn-ghost !px-5 !py-2.5 disabled:opacity-50">
+                {retrying ? "Reintentando..." : "Reintentar borrado"}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
 
       <button disabled={saving} className="btn-gold w-full disabled:opacity-50">
         {saving ? "Guardando..." : "Guardar configuración"}

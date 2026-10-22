@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { deleteFromImgbb } from "@/lib/media/imgbb-delete";
 
 export const runtime = "nodejs";
 
@@ -33,36 +34,34 @@ export async function POST(req: NextRequest) {
     const { data: isAdmin, error: adminErr } = await sb.rpc("is_admin");
     if (!adminErr && !isAdmin) return fail("Tu usuario no es administrador", 403);
 
-    const body = (await req.json().catch(() => ({}))) as { urls?: unknown };
-    const urls = Array.isArray(body.urls) ? body.urls.filter((u): u is string => typeof u === "string").slice(0, 30) : [];
+    const body = (await req.json().catch(() => ({}))) as { urls?: unknown; retryPending?: unknown };
+    let urls = Array.isArray(body.urls) ? body.urls.filter((u): u is string => typeof u === "string").slice(0, 30) : [];
 
-    const results: { url: string; status: "deleted" | "unknown" | "failed" }[] = [];
+    // Reintento manual: las que quedaron marcadas como pendientes (requiere la migración 014).
+    if (body.retryPending === true) {
+      const { data: pend } = await sb.from("image_deletes").select("url").eq("pending", true).limit(30);
+      urls = (pend ?? []).map((r: { url: string }) => r.url);
+    }
+
+    console.log("[upload/delete] pedido para", urls.length, "imagen(es)");
+    const results: { url: string; status: "deleted" | "unknown" | "failed"; detail?: string }[] = [];
     for (const imageUrl of urls) {
       const { data: row, error: selErr } = await sb.from("image_deletes").select("delete_url").eq("url", imageUrl).maybeSingle();
       if (selErr || !row?.delete_url || !isImgbbUrl(row.delete_url)) {
-        results.push({ url: imageUrl, status: "unknown" }); // imagen externa o subida antes de la migración 008
+        console.log("[upload/delete] sin enlace de borrado guardado:", imageUrl, selErr ? `(error: ${selErr.message})` : "");
+        results.push({ url: imageUrl, status: "unknown", detail: selErr ? selErr.message : "sin enlace de borrado guardado" }); // imagen externa o subida antes de la migración 008
         continue;
       }
-      try {
-        const target = new URL(row.delete_url);
-        target.searchParams.set("key", apiKey);
-        const res = await fetch(target, { method: "DELETE" });
-        const text = await res.text();
-        let apiError: unknown;
-        try {
-          apiError = (JSON.parse(text) as { error?: unknown }).error;
-        } catch {}
-        // 404/410: ya no existe en ImgBB; se considera borrada.
-        if ((res.ok && !apiError) || res.status === 404 || res.status === 410) {
-          await sb.from("image_deletes").delete().eq("url", imageUrl);
-          results.push({ url: imageUrl, status: "deleted" });
-        } else {
-          console.warn("[upload/delete] ImgBB no borró la imagen:", res.status, text.slice(0, 200));
-          results.push({ url: imageUrl, status: "failed" });
-        }
-      } catch (e) {
-        console.warn("[upload/delete] Error al contactar ImgBB:", e);
-        results.push({ url: imageUrl, status: "failed" });
+      const r = await deleteFromImgbb(row.delete_url, apiKey);
+      if (r.ok) {
+        console.log("[upload/delete] borrada:", imageUrl, `(${r.via}: ${r.detail})`);
+        await sb.from("image_deletes").delete().eq("url", imageUrl);
+        results.push({ url: imageUrl, status: "deleted", detail: r.detail });
+      } else {
+        console.warn("[upload/delete] ImgBB no borró la imagen:", imageUrl, "→", r.detail);
+        // Queda marcada como pendiente para poder reintentar (si la migración 014 no está, simplemente no se marca).
+        await sb.from("image_deletes").update({ pending: true, last_error: r.detail.slice(0, 300), last_try: new Date().toISOString() }).eq("url", imageUrl);
+        results.push({ url: imageUrl, status: "failed", detail: r.detail });
       }
     }
     return NextResponse.json({ results });

@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { Category } from "@/lib/types";
 import ImageManager from "@/components/admin/ImageManager";
 import { deleteImages } from "@/lib/media/delete-images";
+import { toast } from "@/lib/ui/toast";
 
 // Pestaña "Categorías": crear, renombrar, ordenar, ocultar y borrar. La ven todos los administradores.
 export default function CategoriesPanel({ onChanged, token }: { onChanged: () => void; token: string | null }) {
@@ -21,7 +22,9 @@ export default function CategoriesPanel({ onChanged, token }: { onChanged: () =>
   const [editing, setEditing] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const setMsg = (m: { ok: boolean; text: string } | null) => {
+    if (m) (m.ok ? toast.success : toast.error)(m.text);
+  };
 
   const load = useCallback(async () => {
     if (!supabase) return;
@@ -121,7 +124,11 @@ export default function CategoriesPanel({ onChanged, token }: { onChanged: () =>
 
   const remove = (c: Category) => {
     if (!confirm(`¿Eliminar la categoría "${c.name}"?`)) return;
-    return run(() => supabase!.rpc("delete_category", { p_name: c.name }), "Categoría eliminada ✓");
+    const img = c.image_url;
+    return run(() => supabase!.rpc("delete_category", { p_name: c.name }), "Categoría eliminada ✓").then((ok) => {
+      if (ok && img) deleteImages([img], token); // la foto de la colección ya no se usa
+      return ok;
+    });
   };
 
   const move = async (index: number, dir: -1 | 1) => {
@@ -154,7 +161,6 @@ export default function CategoriesPanel({ onChanged, token }: { onChanged: () =>
             onDiscard={(url) => deleteImages([url], token)}
           />
         </div>
-        {msg && <p className={`text-sm ${msg.ok ? "text-gold-300" : "text-rose-gold"}`}>{msg.text}</p>}
         <button disabled={busy} className="btn-gold w-full disabled:opacity-50">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Crear categoría
         </button>
@@ -249,7 +255,7 @@ export default function CategoriesPanel({ onChanged, token }: { onChanged: () =>
             </div>
           );
         })}
-        {!loading && rows.length === 0 && !msg && <p className="text-white/40">Aún no hay categorías.</p>}
+        {!loading && rows.length === 0 && <p className="text-white/40">Aún no hay categorías.</p>}
       </div>
     </section>
   );
