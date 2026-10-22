@@ -31,19 +31,20 @@ export default function SortMenu({ value, onChange }: Props) {
   }, [open]);
 
   return (
-    <div ref={ref} className="relative ml-auto">
+    <div ref={ref} className="relative ml-auto min-w-0">
       <button
         type="button"
         aria-haspopup="listbox"
+        aria-label={`Ordenar: ${SORT_LABELS[value]}`}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`flex h-11 items-center gap-2 rounded-full border bg-ink-900 pl-4 pr-3 text-xs text-white/80 transition hover:border-gold-400/50 ${
+        className={`flex h-10 max-w-full items-center gap-1.5 rounded-full border bg-ink-900 px-3 text-[11px] text-white/80 sm:h-11 sm:gap-2 sm:pl-4 sm:pr-3 sm:text-xs transition hover:border-gold-400/50 ${
           open ? "border-gold-400" : "border-white/10"
         }`}
       >
-        <ArrowUpDown className="h-4 w-4 text-gold-300" />
-        <span className="max-w-[9.5rem] truncate">{SORT_LABELS[value]}</span>
-        <ChevronDown className={`h-4 w-4 text-white/40 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ArrowUpDown className="h-4 w-4 shrink-0 text-gold-300" />
+        <span className="hidden min-w-0 truncate sm:inline sm:max-w-[9.5rem]">{SORT_LABELS[value]}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-white/40 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       <AnimatePresence>

@@ -9,7 +9,7 @@ import ProductCard from "@/components/catalog/ProductCard";
 import { useRouter } from "next/navigation";
 import { productPath } from "@/lib/catalog/product-url";
 import FilterPanel from "@/components/catalog/FilterPanel";
-import SortMenu from "@/components/catalog/SortMenu1";
+import SortMenu from "@/components/catalog/SortMenu";
 import { useProducts } from "@/lib/catalog/use-products";
 import { useCategories } from "@/lib/catalog/use-categories";
 import { PAGE_SIZE, useInfiniteReveal } from "@/lib/catalog/use-infinite-reveal";
@@ -21,6 +21,7 @@ import {
   defaultFilters,
   getBounds,
   materialOptions,
+  SORT_LABELS,
 } from "@/lib/catalog/filters";
 import { formatCOP } from "@/lib/format";
 
@@ -134,10 +135,10 @@ export default function ProductGrid({ category, setCategory }: Props) {
 
       <LayoutGroup>
         <div ref={toolbarRef} className="mb-6 space-y-4 sm:mb-10">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={() => setPanelOpen(true)}
-              className="flex h-11 items-center gap-2 rounded-full border border-gold-400/40 bg-ink-900 px-5 text-[11px] font-medium uppercase tracking-[0.18em] text-gold-100 transition hover:border-gold-300 hover:bg-gold-400/10"
+              className="flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-gold-400/40 bg-ink-900 px-3.5 text-[10px] font-medium uppercase tracking-[0.12em] text-gold-100 sm:h-11 sm:gap-2 sm:px-5 sm:text-[11px] sm:tracking-[0.18em] transition hover:border-gold-300 hover:bg-gold-400/10"
             >
               <SlidersHorizontal className="h-4 w-4 text-gold-300" />
               Filtros
@@ -152,11 +153,11 @@ export default function ProductGrid({ category, setCategory }: Props) {
               <button
                 onClick={() => setFilters((f) => ({ ...f, onlyOnSale: !f.onlyOnSale }))}
                 aria-pressed={filters.onlyOnSale}
-                className={`flex h-11 items-center gap-2 rounded-full border px-5 text-[11px] font-medium uppercase tracking-[0.18em] transition ${
+                className={`flex h-10 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[10px] font-medium uppercase tracking-[0.12em] transition sm:h-11 sm:gap-2 sm:px-5 sm:text-[11px] sm:tracking-[0.18em] ${
                   filters.onlyOnSale ? "border-gold-300 bg-gold-300 text-ink-950" : "border-rose-gold/50 bg-ink-900 text-rose-gold hover:border-rose-gold"
                 }`}
               >
-                <Percent className="h-4 w-4" /> Ofertas
+                <Percent className="h-4 w-4" /> Descuentos
               </button>
             )}
 
@@ -184,6 +185,7 @@ export default function ProductGrid({ category, setCategory }: Props) {
           {!loading && (
             <p className="text-xs text-white/40">
               {filtered.length} {filtered.length === 1 ? "pieza" : "piezas"}
+              <span className="sm:hidden"> · {SORT_LABELS[filters.sort]}</span>
             </p>
           )}
         </div>
