@@ -1,7 +1,7 @@
 import { Product } from "@/lib/types";
 import { finalPrice, onSale } from "@/lib/catalog/promo";
 
-export type SortKey = "relevance" | "newest" | "price_asc" | "price_desc" | "name";
+export type SortKey = "relevance" | "favorites" | "newest" | "price_asc" | "price_desc" | "name";
 
 export type Filters = {
   minPrice: number | null; // null = sin límite
@@ -10,11 +10,13 @@ export type Filters = {
   onlyAvailable: boolean;
   onlyFeatured: boolean;
   onlyOnSale: boolean;
+  onlyFavorites: boolean; // los marcados con el corazón en este navegador
   sort: SortKey;
 };
 
 export const SORT_LABELS: Record<SortKey, string> = {
   relevance: "Destacados",
+  favorites: "Favoritas",
   newest: "Más recientes",
   price_asc: "Precio: menor a mayor",
   price_desc: "Precio: mayor a menor",
@@ -30,6 +32,7 @@ export const defaultFilters = (): Filters => ({
   onlyAvailable: false,
   onlyFeatured: false,
   onlyOnSale: false,
+  onlyFavorites: false,
   sort: "relevance",
 });
 
@@ -65,11 +68,18 @@ export function countActive(f: Filters): number {
     f.materials.length +
     (f.onlyAvailable ? 1 : 0) +
     (f.onlyFeatured ? 1 : 0) +
-    (f.onlyOnSale ? 1 : 0)
+    (f.onlyOnSale ? 1 : 0) +
+    (f.onlyFavorites ? 1 : 0)
   );
 }
 
-export function applyFilters(products: Product[], f: Filters): Product[] {
+export function applyFilters(
+  products: Product[],
+  f: Filters,
+  favorites: string[] = [],
+  /** Orden de "Favoritas": normalmente son los mismos favoritos; el catálogo pasa una copia fija para que las piezas no salten al tocar el corazón. */
+  favoriteOrder: string[] = favorites
+): Product[] {
   const lo = f.minPrice ?? -Infinity;
   const hi = f.maxPrice ?? Infinity;
 
@@ -77,6 +87,7 @@ export function applyFilters(products: Product[], f: Filters): Product[] {
     const price = finalPrice(p);
     if (price < lo || price > hi) return false;
     if (f.onlyOnSale && !onSale(p)) return false;
+    if (f.onlyFavorites && !favorites.includes(String(p.id))) return false;
     if (f.onlyAvailable && p.stock <= 0) return false;
     if (f.onlyFeatured && !p.featured) return false;
     if (f.materials.length) {
@@ -96,6 +107,13 @@ export function applyFilters(products: Product[], f: Filters): Product[] {
       return list.sort((a, b) => a.name.localeCompare(b.name, "es"));
     case "newest":
       return list.sort((a, b) => time(b) - time(a));
+    case "favorites":
+      // Las favoritas primero; entre iguales se mantiene el orden de destacados.
+      return list.sort(
+        (a, b) =>
+          Number(favoriteOrder.includes(String(b.id))) - Number(favoriteOrder.includes(String(a.id))) ||
+          Number(b.featured) - Number(a.featured)
+      );
     default:
       // Destacados primero y, entre iguales, se respeta el orden original.
       return list.sort((a, b) => Number(b.featured) - Number(a.featured));

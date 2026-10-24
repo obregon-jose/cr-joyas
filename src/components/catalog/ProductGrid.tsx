@@ -11,6 +11,7 @@ import { productPath } from "@/lib/catalog/product-url";
 import FilterPanel from "@/components/catalog/FilterPanel";
 import SortMenu from "@/components/catalog/SortMenu";
 import { useProducts } from "@/lib/catalog/use-products";
+import { useFavorites } from "@/lib/catalog/favorites";
 import { useCategories } from "@/lib/catalog/use-categories";
 import { PAGE_SIZE, useInfiniteReveal } from "@/lib/catalog/use-infinite-reveal";
 import { Product } from "@/lib/types";
@@ -43,6 +44,7 @@ function Skeleton() {
 export default function ProductGrid({ category, setCategory }: Props) {
   const { products, loading } = useProducts();
   const router = useRouter();
+  const { ids: favorites, count: favCount } = useFavorites();
   const { order, hidden } = useCategories();
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -69,7 +71,12 @@ export default function ProductGrid({ category, setCategory }: Props) {
     () => (category === "Todas" ? shown : shown.filter((p) => p.category === category)),
     [shown, category]
   );
-  const filtered = useMemo(() => applyFilters(byCategory, filters), [byCategory, filters]);
+  // Al elegir "Favoritas" se toma una foto de tus favoritos: así las piezas no cambian de lugar cada vez que tocas un corazón.
+  const [favSnap, setFavSnap] = useState<string[] | null>(null);
+  const filtered = useMemo(
+    () => applyFilters(byCategory, filters, favorites, favSnap ?? favorites),
+    [byCategory, filters, favorites, favSnap]
+  );
 
   // Carga progresiva: 12 piezas al inicio y 12 más cada vez que te acercas al final.
   const { visible, hasMore, loadingMore, sentinelRef } = useInfiniteReveal(
@@ -119,6 +126,8 @@ export default function ProductGrid({ category, setCategory }: Props) {
       list.push({ key: "ft", label: "Destacados", remove: () => setFilters((f) => ({ ...f, onlyFeatured: false })) });
     if (filters.onlyOnSale)
       list.push({ key: "sale", label: "En oferta", remove: () => setFilters((f) => ({ ...f, onlyOnSale: false })) });
+    if (filters.onlyFavorites)
+      list.push({ key: "fav", label: "Mis favoritos", remove: () => setFilters((f) => ({ ...f, onlyFavorites: false })) });
     return list;
   }, [category, filters, bounds, setCategory]);
 
@@ -157,11 +166,17 @@ export default function ProductGrid({ category, setCategory }: Props) {
                   filters.onlyOnSale ? "border-gold-300 bg-gold-300 text-ink-950" : "border-rose-gold/50 bg-ink-900 text-rose-gold hover:border-rose-gold"
                 }`}
               >
-                <Percent className="h-4 w-4" /> Descuentos
+                <Percent className="h-4 w-4" /> Ofertas
               </button>
             )}
 
-            <SortMenu value={filters.sort} onChange={(sort) => setFilters((f) => ({ ...f, sort }))} />
+            <SortMenu
+              value={filters.sort}
+              onChange={(sort) => {
+                if (sort === "favorites") setFavSnap(favorites);
+                setFilters((f) => ({ ...f, sort }));
+              }}
+            />
           </div>
 
           {chips.length > 0 && (
@@ -215,7 +230,12 @@ export default function ProductGrid({ category, setCategory }: Props) {
 
         {!loading && filtered.length === 0 && (
           <div className="py-20 text-center">
-            <p className="font-serif text-2xl text-white/70">No encontramos piezas con esos filtros</p>
+            <p className="font-serif text-2xl text-white/70">
+              {filters.onlyFavorites && favCount === 0 ? "Aún no tienes favoritos" : "No encontramos piezas con esos filtros"}
+            </p>
+            {filters.onlyFavorites && favCount === 0 && (
+              <p className="mx-auto mt-3 max-w-sm text-sm text-white/45">Toca el corazón de una pieza para guardarla aquí. Se guardan en este dispositivo.</p>
+            )}
             <button onClick={clearAll} className="btn-ghost mt-6">
               Limpiar filtros
             </button>
