@@ -20,7 +20,7 @@ export function DiscountBadge({ product, className = "" }: { product: Product; c
     <span
       className={`rounded-full bg-gradient-to-r from-rose-gold to-gold-300 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-ink-950 sm:px-3 sm:py-1.5 sm:text-[10px] ${className}`}
     >
-      -{product.discount_percent}%
+      -{product.discount_percent}% OFF
     </span>
   );
 }
