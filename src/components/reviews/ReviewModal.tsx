@@ -14,6 +14,8 @@ type Props = {
   options: Reviewable[]; // piezas compradas por este dispositivo que aún no tienen reseña
   onClose: () => void;
   onDone: () => void; // recargar piezas/reseñas
+  initialOrder?: string; // número de pedido que llega en el enlace de WhatsApp
+  onWrite?: () => void; // pasar del vínculo al formulario de reseña
 };
 
 const MAX_PHOTOS = 5;
@@ -23,7 +25,7 @@ const MAX_CHARS = 1000;
 const WORDS: Record<number, string> = { 1: "Muy mala", 2: "Regular", 3: "Buena", 4: "Muy buena", 5: "Excelente" };
 const wordFor = (v: number) => (v ? WORDS[Math.max(1, Math.ceil(v))] : "Toca las estrellas (puedes elegir medias estrellas)");
 
-export default function ReviewModal({ open, mode, options, onClose, onDone }: Props) {
+export default function ReviewModal({ open, mode, options, onClose, onDone, initialOrder, onWrite }: Props) {
   return (
     <AnimatePresence>
       {open && (
@@ -39,7 +41,7 @@ export default function ReviewModal({ open, mode, options, onClose, onDone }: Pr
             <button onClick={onClose} aria-label="Cerrar" className="absolute right-4 top-4 z-10 rounded-full bg-ink-950/70 p-2.5 transition hover:rotate-90">
               <X className="h-5 w-5" />
             </button>
-            {mode === "write" ? <WriteForm options={options} onClose={onClose} onDone={onDone} /> : <ClaimForm onClose={onClose} onDone={onDone} />}
+            {mode === "write" ? <WriteForm options={options} onClose={onClose} onDone={onDone} /> : <ClaimForm onClose={onClose} onDone={onDone} initialOrder={initialOrder} canWrite={options.length > 0} onWrite={onWrite} />}
           </motion.div>
         </motion.div>
       )}
@@ -118,7 +120,7 @@ function WriteForm({ options, onClose, onDone }: { options: Reviewable[]; onClos
           <Check className="h-10 w-10 text-ink-950" strokeWidth={3} />
         </motion.div>
         <h3 className="font-serif text-3xl">¡Gracias por tu reseña!</h3>
-        <p className="max-w-sm text-white/60">La revisaremos y la publicaremos en la página muy pronto.</p>
+        <p className="max-w-sm text-white/60">Tu reseña ya está publicada en la página.</p>
         <button onClick={onClose} className="btn-ghost mt-2">Cerrar</button>
       </div>
     );
@@ -234,8 +236,8 @@ function WriteForm({ options, onClose, onDone }: { options: Reviewable[]; onClos
 
 /* ---------- Vincular un pedido ---------- */
 
-function ClaimForm({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const [order, setOrder] = useState("");
+function ClaimForm({ onClose, onDone, initialOrder, canWrite, onWrite }: { onClose: () => void; onDone: () => void; initialOrder?: string; canWrite?: boolean; onWrite?: () => void }) {
+  const [order, setOrder] = useState(initialOrder ?? "");
   const [phone, setPhone] = useState("");
   const [sending, setSending] = useState(false);
   const [ok, setOk] = useState(false);
@@ -263,8 +265,14 @@ function ClaimForm({ onClose, onDone }: { onClose: () => void; onDone: () => voi
           <Check className="h-10 w-10 text-ink-950" strokeWidth={3} />
         </div>
         <h3 className="font-serif text-3xl">Pedido vinculado</h3>
-        <p className="max-w-sm text-white/60">Si el pago ya está confirmado, ahora verás el botón para escribir tu reseña.</p>
-        <button onClick={onClose} className="btn-ghost mt-2">Entendido</button>
+        <p className="max-w-sm text-white/60">
+          {canWrite ? "Ya puedes contarnos qué te pareció tu compra." : "Si el pago ya está confirmado, ahora verás el botón para escribir tu reseña."}
+        </p>
+        {canWrite && onWrite ? (
+          <button onClick={onWrite} className="btn-gold mt-2">Escribir mi reseña</button>
+        ) : (
+          <button onClick={onClose} className="btn-ghost mt-2">Entendido</button>
+        )}
       </div>
     );
   }

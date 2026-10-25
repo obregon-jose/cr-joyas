@@ -24,10 +24,11 @@ type Row = {
   created_at: string;
 };
 
+// Las reseñas se publican solas: aquí solo se ocultan o se vuelven a mostrar. "Pendientes" aparece solo si quedó alguna de antes.
 const TABS: { key: Status; label: string }[] = [
   { key: "pendiente", label: "Pendientes" },
-  { key: "aprobada", label: "Aprobadas" },
-  { key: "rechazada", label: "Rechazadas" },
+  { key: "aprobada", label: "Visibles" },
+  { key: "rechazada", label: "Ocultas" },
 ];
 
 const fmt = (iso: string) => new Date(iso).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
@@ -35,7 +36,7 @@ const fmt = (iso: string) => new Date(iso).toLocaleString("es-CO", { dateStyle: 
 export default function ReviewsPanel({ token }: { token: string | null }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
-  const [tab, setTab] = useState<Status>("pendiente");
+  const [tab, setTab] = useState<Status>("aprobada");
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
 
@@ -84,7 +85,7 @@ export default function ReviewsPanel({ token }: { token: string | null }) {
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex rounded-full border border-white/10 p-1 text-xs uppercase tracking-widest">
-          {TABS.map((t) => (
+          {TABS.filter((t) => t.key !== "pendiente" || counts.pendiente > 0).map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
@@ -163,12 +164,12 @@ export default function ReviewsPanel({ token }: { token: string | null }) {
               <div className="mt-5 flex flex-wrap gap-2">
                 {r.status !== "aprobada" && (
                   <button onClick={() => setStatus(r.id, "aprobada")} className="flex items-center gap-2 rounded-full bg-gold-300 px-4 py-2 text-xs font-medium uppercase tracking-widest text-ink-950 transition hover:bg-gold-200">
-                    <Check className="h-4 w-4" /> Aprobar
+                    <Check className="h-4 w-4" /> Mostrar
                   </button>
                 )}
                 {r.status !== "rechazada" && (
                   <button onClick={() => setStatus(r.id, "rechazada")} className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs uppercase tracking-widest text-white/70 transition hover:border-gold-300 hover:text-gold-200">
-                    {r.status === "aprobada" ? <EyeOff className="h-4 w-4" /> : <X className="h-4 w-4" />} {r.status === "aprobada" ? "Ocultar" : "Rechazar"}
+                    <EyeOff className="h-4 w-4" /> Ocultar
                   </button>
                 )}
                 <button onClick={() => remove(r)} className="ml-auto flex items-center gap-2 rounded-full px-3 py-2 text-xs uppercase tracking-widest text-white/40 transition hover:text-rose-gold">

@@ -7,6 +7,7 @@ import Reveal from "@/components/ui/Reveal";
 import ReviewDetail from "@/components/reviews/ReviewDetail";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import { StarsDisplay } from "@/components/ui/StarRating";
+import { toast } from "@/lib/ui/toast";
 import { PublicReview, summarize, usePublicReviews, useReviewable } from "@/lib/reviews/reviews";
 
 // Se muestran mientras todavía no hay reseñas reales aprobadas.
@@ -18,9 +19,31 @@ const FALLBACK: PublicReview[] = [
 
 export default function Testimonials() {
   const { reviews, reload } = usePublicReviews();
-  const { items, refresh } = useReviewable();
+  const { items, loading, refresh } = useReviewable();
   const [modal, setModal] = useState<"write" | "claim" | null>(null);
   const [detail, setDetail] = useState<number | null>(null);
+  const [invitedOrder, setInvitedOrder] = useState<string | undefined>(); // viene del enlace que se envía por WhatsApp
+
+  // Enlace de invitación: /?resena=1042#testimonios. Se guarda el pedido y se limpia la dirección.
+  useEffect(() => {
+    const n = new URLSearchParams(window.location.search).get("resena");
+    if (!n) return;
+    setInvitedOrder(n.replace(/\D/g, ""));
+    window.history.replaceState(null, "", "/#testimonios");
+    setTimeout(() => document.getElementById("testimonios")?.scrollIntoView({ behavior: "smooth" }), 600);
+  }, []);
+
+  // Cuando se sabe qué pedidos son de ESTE dispositivo: si el del enlace es de aquí, se salta la verificación;
+  // si no, se pide el teléfono para vincularlo.
+  const [inviteDone, setInviteDone] = useState(false);
+  useEffect(() => {
+    if (!invitedOrder || inviteDone || loading) return;
+    setInviteDone(true);
+    const mine = items.filter((i) => String(i.order_number) === invitedOrder);
+    if (mine.length === 0) setModal("claim");
+    else if (mine.some((i) => !i.reviewed)) setModal("write");
+    else toast.info("Ya dejaste tu reseña de este pedido. ¡Gracias!");
+  }, [invitedOrder, inviteDone, loading, items]);
 
   const real = reviews.length > 0;
   const list = real ? reviews : FALLBACK;
@@ -134,6 +157,8 @@ export default function Testimonials() {
         open={modal !== null}
         mode={modal ?? "write"}
         options={pending}
+        initialOrder={invitedOrder}
+        onWrite={() => setModal("write")}
         onClose={() => setModal(null)}
         onDone={() => {
           refresh();

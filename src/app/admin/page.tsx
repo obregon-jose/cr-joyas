@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Eye, EyeOff, Loader2, LogOut, MessageCircle, Pencil, Trash2, X } from "lucide-react";
+import { Eye, EyeOff, Loader2, LogOut, MessageCircle, Pencil, Star, Trash2, X } from "lucide-react";
 import { toast } from "@/lib/ui/toast";
 import { supabase } from "@/lib/supabase";
 import { formatCOP } from "@/lib/format";
@@ -15,7 +15,7 @@ import PromotionsPanel from "@/components/admin/PromotionsPanel";
 import FaqPanel from "@/components/admin/FaqPanel";
 import { finalPrice, fromDateInput, promoStatus, toDateInput } from "@/lib/catalog/promo";
 import { useSiteSettings, waLink } from "@/lib/site/site-settings";
-import { buildCustomerMessage, phoneToWa } from "@/lib/cart/order-message";
+import { buildCustomerMessage, buildReviewMessage, phoneToWa } from "@/lib/cart/order-message";
 import { getImages } from "@/lib/catalog/images";
 import { deleteImages } from "@/lib/media/delete-images";
 
@@ -451,6 +451,25 @@ export default function AdminPage() {
                   >
                     <MessageCircle className="h-4 w-4" /> WhatsApp
                   </a>
+                  {["pagado", "enviado", "entregado"].includes(o.status) && o.order_number ? (
+                    <a
+                      href={waLink(
+                        phoneToWa(o.phone),
+                        buildReviewMessage({
+                          number: o.order_number,
+                          brand: site.brand_name,
+                          customer: o,
+                          link: `${window.location.origin}/?resena=${o.order_number}#testimonios`,
+                        })
+                      )}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Agradecer la compra e invitar a dejar una reseña"
+                      className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs uppercase tracking-widest text-white/70 transition hover:border-gold-300 hover:text-gold-200"
+                    >
+                      <Star className="h-4 w-4" /> Pedir reseña
+                    </a>
+                  ) : null}
                   <span className="gold-text font-serif text-xl">{formatCOP(o.total)}</span>
                   <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="input !w-auto !py-2">
                     {["pendiente", "pagado", "enviado", "entregado", "cancelado"].map((s) => <option key={s} className="bg-ink-900">{s}</option>)}

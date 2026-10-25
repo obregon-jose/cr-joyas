@@ -77,6 +77,21 @@ export function buildCustomerMessage(o: {
   ].join("\n");
 }
 
+/** Mensaje de agradecimiento con el enlace para reseñar (se envía desde el admin cuando el pedido ya está pagado). */
+export function buildReviewMessage(o: { number?: number | null; brand: string; customer: Customer; link: string }) {
+  const first = o.customer.customer_name.trim().split(/\s+/)[0] || "";
+  return [
+    `¡Hola${first ? ` ${first}` : ""}! Gracias por tu compra en ${o.brand}${o.number ? ` (pedido #${o.number})` : ""}. 💛`,
+    "",
+    "Nos encantaría saber qué te pareció tu pieza. Te invitamos a reseñar nuestro producto, solo te tomará un minuto:",
+    o.link,
+    "",
+    o.number ? `Cuando te lo pida, escribe el número de pedido #${o.number} y el teléfono con el que compraste.` : "Cuando te lo pida, escribe tu número de pedido y el teléfono con el que compraste.",
+    "",
+    "¡Gracias por confiar en nosotros!",
+  ].join("\n");
+}
+
 /** Teléfono colombiano de 10 dígitos (3xx...) → con indicativo 57. Otros números se respetan. */
 export function phoneToWa(phone: string) {
   const digits = phone.replace(/\D/g, "");
