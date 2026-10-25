@@ -53,7 +53,7 @@ export default function FloatingCart() {
         transition={{ type: "spring", damping: 22, stiffness: 240 }}
         aria-hidden={count === 0}
         tabIndex={count === 0 ? -1 : 0}
-        className={`fixed bottom-6 right-0 z-40 ${count === 0 ? "pointer-events-none" : ""}`}
+        className={`fixed bottom-28 right-0 z-40 ${count === 0 ? "pointer-events-none" : ""}`}
       >
         <motion.span
           animate={controls}
