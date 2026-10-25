@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Link2, MessageCircle, Quote, ShieldCheck, ShoppingBag, Truck, Gem } from "lucide-react";
+import { ChevronRight, Heart, Link2, Minus, Plus, MessageCircle, Quote, ShieldCheck, ShoppingBag, Truck, Gem } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -19,6 +19,7 @@ import { StarsDisplay } from "@/components/ui/StarRating";
 import { supabase } from "@/lib/supabase";
 import { Product } from "@/lib/types";
 import { useCart } from "@/lib/cart/cart";
+import { useFavorites } from "@/lib/catalog/favorites";
 import { getImages } from "@/lib/catalog/images";
 import { productPath } from "@/lib/catalog/product-url";
 import { useProducts } from "@/lib/catalog/use-products";
@@ -102,7 +103,10 @@ function ProductReviews({ reviews, onOpen }: { reviews: PublicReview[]; onOpen: 
 export default function ProductPage({ initial }: { initial: Product }) {
   const router = useRouter();
   const site = useSiteSettings();
-  const { add, buyNow } = useCart();
+  const { add, buyNow, items } = useCart();
+  const { has, toggle, ready: favReady } = useFavorites();
+  const [qty, setQty] = useState(1);
+  const [qtyTouched, setQtyTouched] = useState(false);
   const { products } = useProducts();
   const { reviews } = usePublicReviews();
 
@@ -114,6 +118,8 @@ export default function ProductPage({ initial }: { initial: Product }) {
   useEffect(() => setUrl(window.location.href), []);
 
   useEffect(() => {
+    setQty(1);
+    setQtyTouched(false);
     setProduct(initial);
     setGone(false);
   }, [initial]);
@@ -140,6 +146,10 @@ export default function ProductPage({ initial }: { initial: Product }) {
 
   const images = useMemo(() => getImages(product), [product]);
   const soldOut = product.stock <= 0;
+  const liked = favReady && has(String(product.id));
+  const inCart = items.find((i) => i.product.id === product.id)?.qty ?? 0;
+  const maxQty = Math.max(1, product.stock - inCart); // lo que aún se puede sumar
+  const shownQty = Math.min(qty, maxQty);
   const rating = summarize(reviews, product.id);
   const mine = useMemo(() => reviews.filter((r) => r.product_id === product.id), [reviews, product.id]);
 
@@ -223,10 +233,6 @@ export default function ProductPage({ initial }: { initial: Product }) {
                 <dd className="mt-1 text-gold-100">{product.material || "—"}</dd>
               </div>
               <div>
-                <dt className="text-white/40">Categoría</dt>
-                <dd className="mt-1 text-gold-100">{product.category}</dd>
-              </div>
-              <div className="col-span-2">
                 <dt className="text-white/40">Disponibilidad</dt>
                 <dd className={`mt-1 ${soldOut ? "text-rose-gold" : product.stock <= 3 ? "text-gold-300" : "text-gold-100"}`}>
                   {soldOut ? "Agotado" : product.stock <= 3 ? `¡Quedan solo ${product.stock}!` : "Disponible"}
@@ -234,20 +240,65 @@ export default function ProductPage({ initial }: { initial: Product }) {
               </div>
             </dl>
 
+            {!soldOut && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <span className="text-sm text-white/50">Cantidad</span>
+                <div className="flex items-center rounded-full border border-white/15">
+                  <button
+                    type="button"
+                    aria-label="Menos unidades"
+                    disabled={shownQty <= 1}
+                    onClick={() => { setQty(shownQty - 1); setQtyTouched(true); }}
+                    className="flex h-10 w-10 items-center justify-center text-white/70 transition hover:text-gold-200 disabled:opacity-30"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <span aria-live="polite" className="w-8 text-center text-sm tabular-nums text-gold-100">{shownQty}</span>
+                  <button
+                    type="button"
+                    aria-label="Más unidades"
+                    disabled={shownQty >= maxQty}
+                    onClick={() => { setQty(shownQty + 1); setQtyTouched(true); }}
+                    className="flex h-10 w-10 items-center justify-center text-white/70 transition hover:text-gold-200 disabled:opacity-30"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+                {inCart > 0 && (
+                  <span className="text-xs text-white/40">
+                    Ya tienes {inCart} en el carrito{shownQty >= maxQty && maxQty === 1 && inCart >= product.stock ? " (máximo disponible)" : ""}
+                  </span>
+                )}
+              </div>
+            )}
+
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col 2xl:flex-row">
               <button
                 disabled={soldOut || gone}
-                onClick={(e) => add(product, e.currentTarget)}
+                onClick={(e) => {
+                  if (add(product, e.currentTarget, shownQty)) { setQty(1); setQtyTouched(false); }
+                }}
                 className="btn-gold flex-1 disabled:opacity-40"
               >
-                <ShoppingBag className="h-4 w-4" /> {soldOut ? "Agotado" : "Agregar al carrito"}
+                <ShoppingBag className="h-4 w-4" />{" "}
+                {soldOut ? "Agotado" : shownQty > 1 ? `Agregar ${shownQty} al carrito` : "Agregar al carrito"}
               </button>
               <button
                 disabled={soldOut || gone}
-                onClick={() => buyNow(product)}
+                onClick={() => buyNow(product, qtyTouched ? shownQty : undefined)}
                 className="btn-ghost flex-1 disabled:opacity-40"
               >
                 Comprar ahora
+              </button>
+              <button
+                type="button"
+                onClick={() => toggle(String(product.id))}
+                aria-pressed={liked}
+                aria-label={liked ? "Quitar de favoritos" : "Agregar a favoritos"}
+                className="btn-ghost flex items-center justify-center gap-2 sm:w-auto"
+              >
+                <Heart className={`h-4 w-4 transition ${liked ? "fill-rose-gold text-rose-gold" : ""}`} />
+                <span>{liked ? "En favoritos" : "Favoritos"}</span>
               </button>
             </div>
 

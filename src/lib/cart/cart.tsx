@@ -14,9 +14,10 @@ type CartCtx = {
   count: number;
   total: number;
   setOpen: (v: boolean) => void;
-  add: (p: Product, from?: HTMLElement) => boolean;
+  /** Agrega `qty` unidades (1 por defecto), sin pasar del stock disponible. */
+  add: (p: Product, from?: HTMLElement, qty?: number) => boolean;
   /** "Comprar ahora": deja la pieza en el carrito (sin sumar otra si ya estaba) y abre el carrito directo en el pedido. */
-  buyNow: (p: Product) => boolean;
+  buyNow: (p: Product, qty?: number) => boolean;
   /** true cuando el carrito se abrió con "Comprar ahora" y debe saltar a los datos de envío. */
   checkoutRequested: boolean;
   clearCheckoutRequest: () => void;
@@ -69,18 +70,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Devuelve true si se agregó; false si ya no hay más unidades disponibles.
   const add = useCallback(
-    (p: Product, from?: HTMLElement): boolean => {
+    (p: Product, from?: HTMLElement, qty = 1): boolean => {
       const current = itemsRef.current;
       const found = current.find((i) => i.product.id === p.id);
-      if ((found?.qty ?? 0) >= p.stock) {
+      const available = p.stock - (found?.qty ?? 0);
+      if (available <= 0) {
         cartAlert(stockMessage(p));
         return false;
       }
+      const n = Math.max(1, Math.min(Math.floor(qty) || 1, available));
+      if (n < qty) cartAlert(stockMessage(p));
       if (from) flyToCart(getImages(p)[0] ?? "", from);
       commit(
         found
-          ? current.map((i) => (i.product.id === p.id ? { ...i, qty: i.qty + 1 } : i))
-          : [...current, { product: p, qty: 1 }]
+          ? current.map((i) => (i.product.id === p.id ? { ...i, qty: i.qty + n } : i))
+          : [...current, { product: p, qty: n }]
       );
       return true;
     },
@@ -88,9 +92,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   const buyNow = useCallback(
-    (p: Product): boolean => {
+    (p: Product, qty?: number): boolean => {
       const inCart = itemsRef.current.some((i) => i.product.id === p.id);
-      if (!inCart && !add(p)) return false; // sin stock: ya se avisó con el toast
+      // Con cantidad elegida se suma; sin ella, si ya estaba en el carrito no se suma otra.
+      if ((qty !== undefined || !inCart) && !add(p, undefined, qty ?? 1)) return false;
       setCheckoutRequested(true);
       setOpen(true);
       return true;
