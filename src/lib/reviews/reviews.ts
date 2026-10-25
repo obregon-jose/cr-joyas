@@ -156,12 +156,15 @@ export async function submitReview(input: {
 /** Vincula un pedido a este dispositivo con el número de pedido y el teléfono de la compra. */
 export async function claimOrder(orderNumber: number, phone: string) {
   if (!supabase) throw new Error("No disponible en modo demostración");
-  const { error } = await supabase.rpc("claim_order", {
+  const { data, error } = await supabase.rpc("claim_order", {
     p_device: getDeviceId(),
     p_order_number: orderNumber,
     p_phone: phone,
   });
   if (error) throw new Error(error.message);
+  // Desde la migración 015 los datos incorrectos llegan como { ok: false, error } para que el intento quede contado.
+  const res = data as { ok?: boolean; error?: string } | null;
+  if (res && res.ok === false) throw new Error(res.error ?? "No encontramos un pedido con esos datos");
 }
 
 /** Sube una foto de reseña (se reduce antes de subir). Solo funciona para dispositivos con compra confirmada. */
