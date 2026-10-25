@@ -11,6 +11,7 @@ import CategoriesPanel from "@/components/admin/CategoriesPanel";
 import ImageManager from "@/components/admin/ImageManager";
 import SettingsPanel from "@/components/admin/SettingsPanel";
 import ReviewsPanel from "@/components/admin/ReviewsPanel";
+import SummaryPanel from "@/components/admin/SummaryPanel";
 import PromotionsPanel from "@/components/admin/PromotionsPanel";
 import FaqPanel from "@/components/admin/FaqPanel";
 import { finalPrice, fromDateInput, promoStatus, toDateInput } from "@/lib/catalog/promo";
@@ -54,7 +55,7 @@ export default function AdminPage() {
   const [originalImages, setOriginalImages] = useState<string[]>([]); // imágenes que el producto ya tenía al empezar a editar
   const [saving, setSaving] = useState(false);
   const [isRoot, setIsRoot] = useState(false);
-  const [tab, setTab] = useState<"panel" | "promos" | "categories" | "reviews" | "faq" | "settings" | "users">("panel");
+  const [tab, setTab] = useState<"summary" | "panel" | "promos" | "categories" | "reviews" | "faq" | "settings" | "users">("summary");
   const [catRows, setCatRows] = useState<Category[]>([]);
 
   // Categorías activas de la tabla (migración 004); si aún no existe, las de siempre.
@@ -130,7 +131,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (!token || !isAdmin || !supabase) {
       setIsRoot(false);
-      setTab("panel");
+      setTab("summary");
       return;
     }
     supabase.rpc("is_root").then(({ data, error }) => setIsRoot(!error && Boolean(data)));
@@ -291,6 +292,7 @@ export default function AdminPage() {
           <div className="flex max-w-full overflow-x-auto rounded-full border border-white/10 p-1 text-xs uppercase tracking-widest">
             {(
               [
+                ["summary", "Resumen"],
                 ["panel", "Catálogo"],
                 ["promos", "Promociones"],
                 ["categories", "Categorías"],
@@ -298,7 +300,7 @@ export default function AdminPage() {
                 ["faq", "Preguntas"],
                 ["settings", "Configuración"],
                 ...(isRoot ? [["users", "Usuarios"]] : []),
-              ] as ["panel" | "promos" | "categories" | "reviews" | "faq" | "settings" | "users", string][]
+              ] as ["summary" | "panel" | "promos" | "categories" | "reviews" | "faq" | "settings" | "users", string][]
             ).map(([t, label]) => (
               <button
                 key={t}
@@ -321,6 +323,8 @@ export default function AdminPage() {
           funciona en modo anterior y no podrás pausar productos.
         </p>
       )}
+
+      {tab === "summary" && <SummaryPanel orders={orders} products={products} onGo={() => setTab("panel")} />}
 
       {tab === "panel" && (
       <>
