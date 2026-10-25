@@ -21,6 +21,7 @@ import { Product } from "@/lib/types";
 import { useCart } from "@/lib/cart/cart";
 import { useFavorites } from "@/lib/catalog/favorites";
 import { getImages } from "@/lib/catalog/images";
+import { isLow, isSoldOut, isUnlimited, maxUnits } from "@/lib/catalog/stock";
 import { productPath } from "@/lib/catalog/product-url";
 import { useProducts } from "@/lib/catalog/use-products";
 import { PublicReview, summarize, usePublicReviews } from "@/lib/reviews/reviews";
@@ -145,10 +146,10 @@ export default function ProductPage({ initial }: { initial: Product }) {
   }, [initial.id]);
 
   const images = useMemo(() => getImages(product), [product]);
-  const soldOut = product.stock <= 0;
+  const soldOut = isSoldOut(product);
   const liked = favReady && has(String(product.id));
   const inCart = items.find((i) => i.product.id === product.id)?.qty ?? 0;
-  const maxQty = Math.max(1, product.stock - inCart); // lo que aún se puede sumar
+  const maxQty = Math.max(1, maxUnits(product) - inCart); // lo que aún se puede sumar
   const shownQty = Math.min(qty, maxQty);
   const rating = summarize(reviews, product.id);
   const mine = useMemo(() => reviews.filter((r) => r.product_id === product.id), [reviews, product.id]);
@@ -190,11 +191,11 @@ export default function ProductPage({ initial }: { initial: Product }) {
 
       <div className="mx-auto max-w-7xl px-4 pb-20 pt-28 sm:px-6 sm:pt-32">
         <nav aria-label="Ruta" className="mb-6 flex flex-wrap items-center gap-1.5 text-xs text-white/40">
-          <Link href="/" className="transition hover:text-gold-200">Inicio</Link>
+          <Link href="/" className="cursor-pointer underline-offset-4 transition hover:text-gold-200 hover:underline">Inicio</Link>
           <ChevronRight className="h-3 w-3" />
-          <Link href="/#catalogo" className="transition hover:text-gold-200">Catálogo</Link>
+          <Link href="/#catalogo" className="cursor-pointer underline-offset-4 transition hover:text-gold-200 hover:underline">Catálogo</Link>
           <ChevronRight className="h-3 w-3" />
-          <Link href={`/?categoria=${encodeURIComponent(product.category)}#catalogo`} className="transition hover:text-gold-200">
+          <Link href={`/?categoria=${encodeURIComponent(product.category)}#catalogo`} className="cursor-pointer underline-offset-4 transition hover:text-gold-200 hover:underline">
             {product.category}
           </Link>
           <ChevronRight className="h-3 w-3" />
@@ -236,8 +237,14 @@ export default function ProductPage({ initial }: { initial: Product }) {
               </div>
               <div>
                 <dt className="text-white/40">Disponibilidad</dt>
-                <dd className={`mt-1 ${soldOut ? "text-rose-gold" : product.stock <= 3 ? "text-gold-300" : "text-gold-100"}`}>
-                  {soldOut ? "Agotado" : product.stock <= 3 ? `¡Quedan solo ${product.stock}!` : "Disponible"}
+                <dd className={`mt-1 ${soldOut ? "text-rose-gold" : isLow(product) ? "text-gold-300" : "text-gold-100"}`}>
+                  {soldOut
+                    ? "Agotado"
+                    : isUnlimited(product)
+                      ? "Disponible"
+                      : isLow(product)
+                        ? product.stock === 1 ? "¡Queda solo 1 unidad!" : `¡Quedan solo ${product.stock} unidades!`
+                        : `${product.stock} unidades disponibles`}
                 </dd>
               </div>
             </dl>
@@ -268,7 +275,7 @@ export default function ProductPage({ initial }: { initial: Product }) {
                 </div>
                 {inCart > 0 && (
                   <span className="text-xs text-white/40">
-                    Ya tienes {inCart} en el carrito{shownQty >= maxQty && maxQty === 1 && inCart >= product.stock ? " (máximo disponible)" : ""}
+                    Ya tienes {inCart} en el carrito{shownQty >= maxQty && maxQty === 1 && inCart >= maxUnits(product) ? " (máximo disponible)" : ""}
                   </span>
                 )}
               </div>

@@ -9,6 +9,7 @@ export type Product = {
   images?: string[]; // galería JSON; la primera es la portada
   featured: boolean;
   stock: number;
+  unlimited_stock?: boolean; // true = sin límite de unidades (migración 017)
   active?: boolean; // false = pausado, no se muestra en la tienda
   discount_percent?: number | null; // promoción: 1–90 (migración 011)
   promo_start?: string | null; // inicio opcional

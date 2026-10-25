@@ -6,6 +6,7 @@ import { formatCOP } from "@/lib/format";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { CartItem, Product } from "@/lib/types";
 import { getImages } from "@/lib/catalog/images";
+import { MAX_PER_LINE, isSoldOut, isUnlimited, maxUnits } from "@/lib/catalog/stock";
 import { cartAlert, flyToCart } from "@/lib/cart/fly-to-cart";
 
 type CartCtx = {
@@ -64,16 +65,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const stockMessage = (p: Product) =>
-    p.stock <= 0
+    isSoldOut(p)
       ? `"${p.name}" está agotado.`
-      : `Solo hay ${p.stock} ${p.stock === 1 ? "unidad" : "unidades"} de "${p.name}" y ya ${p.stock === 1 ? "la tienes" : "las tienes"} en tu carrito.`;
+      : isUnlimited(p)
+        ? `Máximo ${MAX_PER_LINE} unidades de "${p.name}" por pedido.`
+        : `Solo hay ${p.stock} ${p.stock === 1 ? "unidad" : "unidades"} de "${p.name}" y ya ${p.stock === 1 ? "la tienes" : "las tienes"} en tu carrito.`;
 
   // Devuelve true si se agregó; false si ya no hay más unidades disponibles.
   const add = useCallback(
     (p: Product, from?: HTMLElement, qty = 1): boolean => {
       const current = itemsRef.current;
       const found = current.find((i) => i.product.id === p.id);
-      const available = p.stock - (found?.qty ?? 0);
+      const available = maxUnits(p) - (found?.qty ?? 0);
       if (available <= 0) {
         cartAlert(stockMessage(p));
         return false;
@@ -113,10 +116,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const setQty = useCallback(
     (id: string, qty: number) => {
       const target = itemsRef.current.find((i) => i.product.id === id);
-      if (target && qty > target.product.stock) cartAlert(stockMessage(target.product));
+      if (target && qty > maxUnits(target.product)) cartAlert(stockMessage(target.product));
       commit(
         itemsRef.current
-          .map((i) => (i.product.id === id ? { ...i, qty: Math.min(qty, i.product.stock) } : i))
+          .map((i) => (i.product.id === id ? { ...i, qty: Math.min(qty, maxUnits(i.product)) } : i))
           .filter((i) => i.qty > 0)
       );
     },
@@ -147,14 +150,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         notes.push(`"${name}" ya no está disponible y se quitó de tu carrito.`);
         continue;
       }
-      if (p.stock <= 0) {
+      if (isSoldOut(p)) {
         notes.push(`"${name}" se agotó y se quitó de tu carrito.`);
         continue;
       }
       let qty = item.qty;
-      if (qty > p.stock) {
-        qty = p.stock;
-        notes.push(`Solo quedan ${p.stock} ${p.stock === 1 ? "unidad" : "unidades"} de "${name}"; ajustamos la cantidad.`);
+      if (qty > maxUnits(p)) {
+        qty = maxUnits(p);
+        notes.push(`Solo quedan ${maxUnits(p)} ${maxUnits(p) === 1 ? "unidad" : "unidades"} de "${name}"; ajustamos la cantidad.`);
       }
       const before = finalPrice(item.product);
       const after = finalPrice(p);

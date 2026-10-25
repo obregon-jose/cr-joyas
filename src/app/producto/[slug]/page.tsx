@@ -4,6 +4,7 @@ import ProductPage from "@/components/catalog/ProductPage";
 import { getBrandName, getProduct, getVisibleProducts } from "@/lib/catalog/server-products";
 import { finalPrice, onSale } from "@/lib/catalog/promo";
 import { idFromSlug, productPath, siteUrl } from "@/lib/catalog/product-url";
+import { isSoldOut } from "@/lib/catalog/stock";
 import { getImages } from "@/lib/catalog/images";
 
 // Se regenera cada minuto; el precio y el stock se vuelven a leer en el navegador al abrir la ficha.
@@ -20,13 +21,12 @@ export async function generateStaticParams() {
   }
 }
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: { slug: string } };
 
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-    const { slug } = await params;
-  const [product, brand] = await Promise.all([getProduct(idFromSlug(slug)), getBrandName()]);
+  const [product, brand] = await Promise.all([getProduct(idFromSlug(params.slug)), getBrandName()]);
   if (!product) return { title: "Pieza no encontrada", robots: { index: false } };
   const description = clip(product.description?.replace(/\s+/g, " ").trim() || `${product.name} · ${product.category} en ${product.material || "oro 18k"}.`, 160);
   const images = getImages(product).slice(0, 3);
@@ -40,13 +40,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function Page({ params }: Props) {
-  const { slug } = await params;
-  const product = await getProduct(idFromSlug(slug));
+  const product = await getProduct(idFromSlug(params.slug));
   if (!product) notFound();
 
   // Si el producto cambió de nombre, el enlace viejo sigue funcionando y lleva al nuevo.
   const canonical = productPath(product);
-  if (decodeURIComponent(slug) !== decodeURIComponent(canonical.replace("/producto/", ""))) permanentRedirect(canonical);
+  if (decodeURIComponent(params.slug) !== decodeURIComponent(canonical.replace("/producto/", ""))) permanentRedirect(canonical);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -61,7 +60,7 @@ export default async function Page({ params }: Props) {
       "@type": "Offer",
       priceCurrency: "COP",
       price: finalPrice(product),
-      availability: product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      availability: !isSoldOut(product) ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       itemCondition: "https://schema.org/NewCondition",
       ...(onSale(product) && product.promo_end ? { priceValidUntil: product.promo_end.slice(0, 10) } : {}),
     },

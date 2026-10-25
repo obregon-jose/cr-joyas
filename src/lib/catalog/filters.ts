@@ -1,4 +1,5 @@
 import { Product } from "@/lib/types";
+import { isSoldOut } from "@/lib/catalog/stock";
 import { finalPrice, onSale } from "@/lib/catalog/promo";
 
 export type SortKey = "relevance" | "favorites" | "newest" | "price_asc" | "price_desc" | "name";
@@ -88,7 +89,7 @@ export function applyFilters(
     if (price < lo || price > hi) return false;
     if (f.onlyOnSale && !onSale(p)) return false;
     if (f.onlyFavorites && !favorites.includes(String(p.id))) return false;
-    if (f.onlyAvailable && p.stock <= 0) return false;
+    if (f.onlyAvailable && isSoldOut(p)) return false;
     if (f.onlyFeatured && !p.featured) return false;
     if (f.materials.length) {
       const own = splitMaterial(p.material);

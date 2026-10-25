@@ -11,6 +11,7 @@ import { getImages } from "@/lib/catalog/images";
 import Price, { DiscountBadge } from "@/components/catalog/Price";
 import { onSale } from "@/lib/catalog/promo";
 import { isNew } from "@/lib/catalog/new-badge";
+import { isSoldOut } from "@/lib/catalog/stock";
 import { useFavorites } from "@/lib/catalog/favorites";
 
 type Props = {
@@ -24,7 +25,7 @@ export default function ProductCard({ product, onOpen }: Props) {
   const { has, toggle, ready: mounted } = useFavorites();
   const [added, setAdded] = useState(false);
 
-  const soldOut = product.stock <= 0;
+  const soldOut = isSoldOut(product);
   const images = getImages(product);
   const gallery = images.slice(0, 4);
   const [idx, setIdx] = useState(0); // foto que se muestra en la tarjeta

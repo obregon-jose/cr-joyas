@@ -29,6 +29,7 @@ const blank = {
   material: "",
   images: [] as string[],
   stock: "1",
+  unlimited: false,
   featured: false,
   active: true,
   discount: "",
@@ -197,6 +198,7 @@ export default function AdminPage() {
       material: p.material ?? "",
       images: getImages(p),
       stock: String(p.stock),
+      unlimited: p.unlimited_stock === true,
       featured: p.featured,
       active: p.active !== false,
       discount: p.discount_percent ? String(p.discount_percent) : "",
@@ -229,7 +231,8 @@ export default function AdminPage() {
       material: form.material,
       image_url: form.images[0], // portada
       images: form.images,
-      stock: Number(form.stock),
+      stock: form.unlimited ? 0 : Number(form.stock),
+      unlimited_stock: form.unlimited,
       featured: form.featured,
       active: form.active,
       discount_percent: pct,
@@ -335,8 +338,12 @@ export default function AdminPage() {
           <textarea className="input" rows={3} placeholder="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
             <input className="input" type="number" min={0} placeholder="Precio COP" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
-            <input className="input" type="number" min={0} placeholder="Stock" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} required />
+            <input className="input disabled:opacity-40" type="number" min={0} placeholder="Stock (unidades)" value={form.unlimited ? "" : form.stock} disabled={form.unlimited} onChange={(e) => setForm({ ...form, stock: e.target.value })} required={!form.unlimited} />
           </div>
+          <label className="flex cursor-pointer items-center gap-3 text-sm text-white/70">
+            <input type="checkbox" checked={form.unlimited} onChange={(e) => setForm({ ...form, unlimited: e.target.checked })} className="h-4 w-4 accent-gold-300" />
+            Stock ilimitado (por encargo o siempre disponible; no se descuenta al vender)
+          </label>
           <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             {categories.map((c) => <option key={c} className="bg-ink-900">{c}</option>)}
           </select>
@@ -396,7 +403,7 @@ export default function AdminPage() {
                     {paused && <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 align-middle font-sans text-[10px] uppercase tracking-widest">Pausado</span>}
                   </p>
                   <p className="text-xs text-white/40">
-                    {p.category} · stock {p.stock} · {formatCOP(p.price)}
+                    {p.category} · {p.unlimited_stock ? "stock ilimitado" : `stock ${p.stock}`} · {formatCOP(p.price)}
                     {promoStatus(p) && (
                       <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest ${promoStatus(p) === "activa" ? "bg-emerald-400/15 text-emerald-300" : "bg-white/10 text-white/50"}`}>
                         -{p.discount_percent}% · {promoStatus(p)}
