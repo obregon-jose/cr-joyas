@@ -7,6 +7,9 @@ export type SiteSettings = {
   // Marca
   brand_name: string;
   footer_text: string;
+  // Buscadores y redes (título y descripción al compartir o aparecer en Google)
+  seo_title: string; // vacío = "<marca> · Alta joyería colombiana"
+  seo_description: string;
   // Contacto
   whatsapp: string;
   phone: string;
@@ -48,9 +51,12 @@ export const STAT_VALUE_MAX = 99999999;
 export const DEFAULT_SETTINGS: SiteSettings = {
   brand_name: "CR Joyas",
   footer_text: "CR Joyas. Todos los derechos reservados.",
+  seo_title: "",
+  seo_description:
+    "Anillos, collares, aretes y pulseras en oro 18k, diamantes y esmeraldas colombianas. Piezas únicas hechas a mano.",
   whatsapp: process.env.NEXT_PUBLIC_WHATSAPP ?? "573001234567",
   phone: "+57 300 123 4567",
-  email: "hola@aureliajoyeria.co",
+  email: "", // vacío = no se muestra; se escribe en Configuración
   address: "Cali, Valle del Cauca · Colombia",
   hours: "Lun – Sáb · 10:00 a 19:00",
   instagram: "",
@@ -88,7 +94,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
 };
 
 // Estos campos pueden quedar vacíos a propósito (se ocultan en el sitio).
-const OPTIONAL: (keyof SiteSettings)[] = ["instagram", "facebook", "tiktok", "phone", "email", "address", "hours", "hero_ring_text", "atelier_badge"];
+const OPTIONAL: (keyof SiteSettings)[] = ["seo_title", "instagram", "facebook", "tiktok", "phone", "email", "address", "hours", "hero_ring_text", "atelier_badge"];
 
 /** Quita vacíos y espacios sobrantes y respeta los límites de la cinta. */
 export function cleanMarquee(list: unknown[]): string[] {

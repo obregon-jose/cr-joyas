@@ -47,6 +47,13 @@ const SECTIONS: { title: string; fields: Field[] }[] = [
     ],
   },
   {
+    title: "Google y redes sociales",
+    fields: [
+      { key: "seo_title", label: "Título del sitio", hint: "Es el título que aparece en la pestaña del navegador y en Google (ideal: menos de 60 letras). Vacío = nombre de la marca + \"Alta joyería colombiana\"." },
+      { key: "seo_description", label: "Descripción del sitio", long: true, hint: "El texto que aparece bajo el título en Google y al compartir el enlace por WhatsApp (ideal: menos de 160 letras). Los cambios pueden tardar un minuto en verse." },
+    ],
+  },
+  {
     title: "Portada (hero)",
     fields: [
       { key: "hero_eyebrow", label: "Texto pequeño superior" },

@@ -29,10 +29,33 @@ export async function getVisibleProducts(): Promise<Product[]> {
   return error || list.length === 0 ? demoProducts : list;
 }
 
+// Configuración guardada (una sola consulta por visita).
+const getStoredSettings = cache(async (): Promise<Record<string, unknown>> => {
+  if (!supabase) return {};
+  try {
+    const { data } = await supabase.from("site_settings").select("data").eq("id", 1).abortSignal(AbortSignal.timeout(5000)).maybeSingle();
+    return (data?.data as Record<string, unknown> | undefined) ?? {};
+  } catch {
+    return {};
+  }
+});
+
+const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
 /** Nombre de la marca guardado en Configuración. */
-export const getBrandName = cache(async (): Promise<string> => {
-  if (!supabase) return FALLBACK_BRAND;
-  const { data } = await supabase.from("site_settings").select("data").eq("id", 1).abortSignal(AbortSignal.timeout(5000)).maybeSingle();
-  const name = (data?.data as { brand_name?: unknown } | undefined)?.brand_name;
-  return typeof name === "string" && name.trim() ? name.trim() : FALLBACK_BRAND;
+export const getBrandName = cache(async (): Promise<string> => text((await getStoredSettings()).brand_name) || FALLBACK_BRAND);
+
+const FALLBACK_DESCRIPTION =
+  "Anillos, collares, aretes y pulseras en oro 18k, diamantes y esmeraldas colombianas. Piezas únicas hechas a mano.";
+
+/** Título, descripción e imagen del sitio para Google y para compartir el enlace. */
+export const getSiteSeo = cache(async () => {
+  const s = await getStoredSettings();
+  const brand = text(s.brand_name) || FALLBACK_BRAND;
+  return {
+    brand,
+    title: text(s.seo_title) || `${brand} · Alta joyería colombiana`,
+    description: text(s.seo_description) || FALLBACK_DESCRIPTION,
+    image: text(s.hero_image),
+  };
 });

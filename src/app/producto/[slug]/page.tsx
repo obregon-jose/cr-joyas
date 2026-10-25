@@ -21,12 +21,13 @@ export async function generateStaticParams() {
   }
 }
 
-type Props = { params: { slug: string } };
+type Props = { params: Promise<{ slug: string }> };
 
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const [product, brand] = await Promise.all([getProduct(idFromSlug(params.slug)), getBrandName()]);
+  const { slug } = await params;
+  const [product, brand] = await Promise.all([getProduct(idFromSlug(slug)), getBrandName()]);
   if (!product) return { title: "Pieza no encontrada", robots: { index: false } };
   const description = clip(product.description?.replace(/\s+/g, " ").trim() || `${product.name} · ${product.category} en ${product.material || "oro 18k"}.`, 160);
   const images = getImages(product).slice(0, 3);
@@ -40,12 +41,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function Page({ params }: Props) {
-  const product = await getProduct(idFromSlug(params.slug));
+  const { slug } = await params;
+  const product = await getProduct(idFromSlug(slug));
   if (!product) notFound();
 
   // Si el producto cambió de nombre, el enlace viejo sigue funcionando y lleva al nuevo.
   const canonical = productPath(product);
-  if (decodeURIComponent(params.slug) !== decodeURIComponent(canonical.replace("/producto/", ""))) permanentRedirect(canonical);
+  if (decodeURIComponent(slug) !== decodeURIComponent(canonical.replace("/producto/", ""))) permanentRedirect(canonical);
 
   const jsonLd = {
     "@context": "https://schema.org",

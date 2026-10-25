@@ -2,13 +2,22 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { CartProvider } from "@/lib/cart/cart";
 import Toaster from "@/components/ui/Toaster";
+import { getSiteSeo } from "@/lib/catalog/server-products";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-  title: "CR Joyas · Alta joyería colombiana",
-  description:
-    "Anillos, collares, aretes y pulseras en oro 18k, diamantes y esmeraldas colombianas. Piezas únicas hechas a mano.",
-};
+// El título y la descripción vienen de Configuración; se actualizan solos cada minuto.
+export const revalidate = 60;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const seo = await getSiteSeo();
+  const images = seo.image ? [seo.image] : undefined;
+  return {
+    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+    title: seo.title,
+    description: seo.description,
+    openGraph: { title: seo.title, description: seo.description, siteName: seo.brand, type: "website", locale: "es_CO", images },
+    twitter: { card: images ? "summary_large_image" : "summary", title: seo.title, description: seo.description, images },
+  };
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
