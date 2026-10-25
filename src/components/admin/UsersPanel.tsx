@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, ShieldCheck, UserCheck, UserX } from "lucide-react";
+import { Eye, Loader2, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/lib/ui/toast";
 
@@ -11,7 +11,7 @@ type UserRow = {
   created_at: string;
   last_sign_in_at: string | null;
   has_access: boolean;
-  role: "root" | "admin" | null;
+  role: "root" | "admin" | "viewer" | null;
   active: boolean | null;
 };
 
@@ -45,14 +45,17 @@ export default function UsersPanel() {
     load();
   }, [load]);
 
-  const setAccess = async (r: UserRow, enabled: boolean) => {
+  // Cambia el rol de una cuenta (migración 018): admin = edita todo, viewer = solo mira, none = sin acceso.
+  const setRole = async (r: UserRow, role: "admin" | "viewer" | "none") => {
     if (!supabase) return;
     setBusyId(r.user_id);
-    setMsg(null);
-    const { error } = await supabase.rpc("set_user_access", { p_user: r.user_id, p_enabled: enabled });
+    const { error } = await supabase.rpc("set_user_role", { p_user: r.user_id, p_role: role });
     setBusyId(null);
-    if (error) return setMsg({ ok: false, text: error.message });
-    setMsg({ ok: true, text: enabled ? `${r.email} ahora tiene acceso al panel ✓` : `${r.email} ya no tiene acceso ✓` });
+    if (error) {
+      const missing = /set_user_role/i.test(error.message) && /function|schema cache|find/i.test(error.message);
+      return setMsg({ ok: false, text: missing ? "Falta ejecutar la migración 018 en Supabase (supabase/migrations/018_roles_permisos.sql)." : error.message });
+    }
+    setMsg({ ok: true, text: role === "none" ? `${r.email} ya no tiene acceso ✓` : `${r.email} ahora es ${role === "admin" ? "administrador" : "visitante (solo lectura)"} ✓` });
     load();
   };
 
@@ -63,7 +66,7 @@ export default function UsersPanel() {
       <div>
         <h2 className="font-serif text-2xl">Usuarios ({rows.length})</h2>
         <p className="mt-1 text-sm text-white/50">
-          Aquí aparecen todas las cuentas creadas en Supabase. Da o quita el acceso al panel con un clic.
+          Aquí aparecen todas las cuentas creadas en Supabase. Elige qué puede hacer cada una: <b>Administrador</b> edita todo (menos usuarios), <b>Visitante</b> entra al panel pero solo puede mirar, y <b>Sin acceso</b> no entra. Solo existe un root.
           Para agregar una persona nueva, créala primero en Supabase &gt; Authentication &gt; Users (con <b>Auto Confirm User</b>)
           y recarga esta lista.
         </p>
@@ -88,6 +91,11 @@ export default function UsersPanel() {
                       <ShieldCheck className="h-3 w-3" /> Root
                     </span>
                   )}
+                  {r.role === "viewer" && access && (
+                    <span className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 font-sans text-[10px] uppercase tracking-widest text-white/70">
+                      <Eye className="h-3 w-3" /> Visitante
+                    </span>
+                  )}
                   {isMe && <span className="rounded-full bg-white/10 px-2 py-0.5 font-sans text-[10px] uppercase tracking-widest">Tú</span>}
                   <span
                     className={`rounded-full px-2 py-0.5 font-sans text-[10px] uppercase tracking-widest ${
@@ -102,15 +110,25 @@ export default function UsersPanel() {
                   {r.last_sign_in_at ? `último ingreso ${new Date(r.last_sign_in_at).toLocaleDateString("es-CO")}` : "nunca ha ingresado"}
                 </p>
               </div>
-              <button
-                onClick={() => setAccess(r, !access)}
-                disabled={busy || (isMe && access)}
-                title={isMe && access ? "No puedes quitarte el acceso a ti mismo" : access ? "Quitar acceso" : "Dar acceso"}
-                className="flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-widest transition hover:border-gold-300 hover:text-gold-200 disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : access ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                {access ? "Quitar acceso" : "Dar acceso"}
-              </button>
+              {r.role === "root" ? (
+                <span className="text-xs uppercase tracking-widest text-white/35">Único root</span>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {busy && <Loader2 className="h-4 w-4 animate-spin text-gold-300" />}
+                  <select
+                    aria-label={`Rol de ${r.email ?? "la cuenta"}`}
+                    value={access ? (r.role === "viewer" ? "viewer" : "admin") : "none"}
+                    disabled={busy || isMe}
+                    title={isMe ? "No puedes cambiar tu propio rol" : "Cambiar rol"}
+                    onChange={(e) => setRole(r, e.target.value as "admin" | "viewer" | "none")}
+                    className="input !w-auto !py-2 text-xs disabled:opacity-40"
+                  >
+                    <option value="none" className="bg-ink-900">Sin acceso</option>
+                    <option value="viewer" className="bg-ink-900">Visitante (solo lectura)</option>
+                    <option value="admin" className="bg-ink-900">Administrador</option>
+                  </select>
+                </div>
+              )}
             </div>
           );
         })}

@@ -24,7 +24,9 @@ export async function POST(req: NextRequest) {
       if (error || !data.user) return fail("Sesión inválida, vuelve a iniciar sesión", 401);
 
       // Solo administradores pueden subir imágenes (requiere la migración 001).
-      const { data: isAdmin, error: adminErr } = await sb.rpc("is_admin");
+      // Solo quienes pueden editar (root y admin) suben imágenes; si la migración 018 aún no existe se usa is_admin.
+      let { data: isAdmin, error: adminErr } = await sb.rpc("can_edit");
+      if (adminErr) ({ data: isAdmin, error: adminErr } = await sb.rpc("is_admin"));
       if (adminErr) {
         console.warn("[upload] is_admin() no disponible; ejecuta supabase/migrations/001. Modo anterior activo.");
       } else if (!isAdmin) {

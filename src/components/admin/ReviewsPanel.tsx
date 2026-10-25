@@ -33,7 +33,7 @@ const TABS: { key: Status; label: string }[] = [
 
 const fmt = (iso: string) => new Date(iso).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
 
-export default function ReviewsPanel({ token }: { token: string | null }) {
+export default function ReviewsPanel({ token, readOnly = false }: { token: string | null; readOnly?: boolean }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
   const [tab, setTab] = useState<Status>("aprobada");
@@ -98,9 +98,11 @@ export default function ReviewsPanel({ token }: { token: string | null }) {
             </button>
           ))}
         </div>
+        {!readOnly && (
         <button onClick={() => setAdding((v) => !v)} className="btn-ghost !px-5 !py-2.5">
           {adding ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {adding ? "Cerrar" : "Agregar reseña"}
         </button>
+        )}
       </div>
 
       {adding && (
@@ -161,6 +163,7 @@ export default function ReviewsPanel({ token }: { token: string | null }) {
                 </div>
               )}
 
+              {!readOnly && (
               <div className="mt-5 flex flex-wrap gap-2">
                 {r.status !== "aprobada" && (
                   <button onClick={() => setStatus(r.id, "aprobada")} className="flex items-center gap-2 rounded-full bg-gold-300 px-4 py-2 text-xs font-medium uppercase tracking-widest text-ink-950 transition hover:bg-gold-200">
@@ -176,6 +179,7 @@ export default function ReviewsPanel({ token }: { token: string | null }) {
                   <Trash2 className="h-4 w-4" /> Eliminar
                 </button>
               </div>
+              )}
             </li>
           ))}
         </ul>

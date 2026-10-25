@@ -55,6 +55,8 @@ export default function AdminPage() {
   const [originalImages, setOriginalImages] = useState<string[]>([]); // imágenes que el producto ya tenía al empezar a editar
   const [saving, setSaving] = useState(false);
   const [isRoot, setIsRoot] = useState(false);
+  const [role, setRole] = useState<string | null>(null); // root | admin | viewer (migración 018); null = aún no se sabe o no existe
+  const readOnly = role === "viewer"; // el visitante solo mira
   const [tab, setTab] = useState<"summary" | "panel" | "promos" | "categories" | "reviews" | "faq" | "settings" | "users">("summary");
   const [catRows, setCatRows] = useState<Category[]>([]);
 
@@ -135,7 +137,13 @@ export default function AdminPage() {
       return;
     }
     supabase.rpc("is_root").then(({ data, error }) => setIsRoot(!error && Boolean(data)));
+    supabase.rpc("my_role").then(({ data, error }) => setRole(!error && typeof data === "string" ? data : null));
   }, [token, isAdmin]);
+
+  // El visitante solo ve estas pestañas.
+  useEffect(() => {
+    if (readOnly && !["summary", "panel", "reviews"].includes(tab)) setTab("summary");
+  }, [readOnly, tab]);
 
   if (!supabase) {
     return (
@@ -180,8 +188,8 @@ export default function AdminPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
         <p className="max-w-md text-white/70">
-          Tu usuario no tiene permisos de administrador. Si es tu cuenta, agrégala a la tabla{" "}
-          <code className="text-gold-300">admins</code> (instrucciones al final de la migración 001).
+          Tu usuario no tiene permisos para ingresar al sistema. Comunicate con el {" "}
+          <code className="text-gold-300">administrador</code>
         </p>
         <button onClick={() => supabase!.auth.signOut()} className="btn-ghost">Cerrar sesión</button>
       </div>
@@ -291,16 +299,18 @@ export default function AdminPage() {
         <div className="flex max-w-full flex-wrap items-center gap-3">
           <div className="flex max-w-full overflow-x-auto rounded-full border border-white/10 p-1 text-xs uppercase tracking-widest">
             {(
-              [
-                ["summary", "Resumen"],
-                ["panel", "Catálogo"],
-                ["promos", "Promociones"],
-                ["categories", "Categorías"],
-                ["reviews", "Reseñas"],
-                ["faq", "Preguntas"],
-                ["settings", "Configuración"],
-                ...(isRoot ? [["users", "Usuarios"]] : []),
-              ] as ["summary" | "panel" | "promos" | "categories" | "reviews" | "faq" | "settings" | "users", string][]
+              (
+                [
+                  ["summary", "Resumen"],
+                  ["panel", "Catálogo"],
+                  ["promos", "Promociones"],
+                  ["categories", "Categorías"],
+                  ["reviews", "Reseñas"],
+                  ["faq", "Preguntas"],
+                  ["settings", "Configuración"],
+                  ...(isRoot ? [["users", "Usuarios"]] : []),
+                ] as ["summary" | "panel" | "promos" | "categories" | "reviews" | "faq" | "settings" | "users", string][]
+              ).filter(([t]) => !readOnly || ["summary", "panel", "reviews"].includes(t))
             ).map(([t, label]) => (
               <button
                 key={t}
@@ -317,6 +327,12 @@ export default function AdminPage() {
         </div>
       </header>
 
+      {readOnly && (
+        <p className="rounded-2xl border border-white/15 bg-white/[0.04] p-4 text-sm text-white/70">
+          Tu cuenta es de <b>solo lectura</b>: puedes ver el resumen, los productos, los pedidos y las reseñas, pero no modificarlos.
+        </p>
+      )}
+
       {legacyMode && (
         <p className="rounded-2xl border border-gold-400/40 bg-gold-400/10 p-4 text-sm text-gold-100">
           Aviso: falta ejecutar <code>supabase/migrations/001_seguridad_y_activo.sql</code> en Supabase. Mientras no lo hagas, el panel
@@ -328,7 +344,8 @@ export default function AdminPage() {
 
       {tab === "panel" && (
       <>
-      <section className="grid gap-10 lg:grid-cols-[420px_1fr]">
+      <section className={`grid gap-10 ${readOnly ? "" : "lg:grid-cols-[420px_1fr]"}`}>
+        {!readOnly && (
         <form onSubmit={save} className="h-fit space-y-3 rounded-3xl border border-white/10 bg-ink-900 p-6 lg:sticky lg:top-6">
           <div className="flex items-center justify-between">
             <h2 className="font-serif text-2xl">{editingId ? "Editar producto" : "Nuevo producto"}</h2>
@@ -387,6 +404,7 @@ export default function AdminPage() {
             {saving ? "Guardando..." : editingId ? "Guardar cambios" : "Crear producto"}
           </button>
         </form>
+        )}
 
         <div className="space-y-3">
           <h2 className="font-serif text-2xl">Productos ({products.length})</h2>
@@ -415,6 +433,8 @@ export default function AdminPage() {
                     )}
                   </p>
                 </div>
+                {!readOnly && (
+                  <>
                 <button onClick={() => startEdit(p)} aria-label="Editar" title="Editar" className="rounded-full p-2 text-white/50 hover:text-gold-300">
                   <Pencil className="h-4 w-4" />
                 </button>
@@ -424,6 +444,8 @@ export default function AdminPage() {
                 <button onClick={() => del(p.id)} aria-label="Eliminar" title="Eliminar" className="rounded-full p-2 text-white/40 hover:text-rose-gold">
                   <Trash2 className="h-4 w-4" />
                 </button>
+                  </>
+                )}
               </div>
             );
           })}
@@ -482,9 +504,13 @@ export default function AdminPage() {
                     </a>
                   ) : null}
                   <span className="gold-text font-serif text-xl">{formatCOP(o.total)}</span>
-                  <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="input !w-auto !py-2">
-                    {["pendiente", "pagado", "enviado", "entregado", "cancelado"].map((s) => <option key={s} className="bg-ink-900">{s}</option>)}
-                  </select>
+                  {readOnly ? (
+                    <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs uppercase tracking-widest text-white/70">{o.status}</span>
+                  ) : (
+                    <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="input !w-auto !py-2">
+                      {["pendiente", "pagado", "enviado", "entregado", "cancelado"].map((s) => <option key={s} className="bg-ink-900">{s}</option>)}
+                    </select>
+                  )}
                 </div>
               </div>
               <p className="mt-3 text-sm text-white/50">{o.items.map((i) => `${i.qty}× ${i.name}`).join(" · ")}</p>
@@ -501,7 +527,7 @@ export default function AdminPage() {
 
       {tab === "categories" && <CategoriesPanel onChanged={load} token={token} />}
 
-      {tab === "reviews" && <ReviewsPanel token={token} />}
+      {tab === "reviews" && <ReviewsPanel token={token} readOnly={readOnly} />}
 
       {tab === "faq" && <FaqPanel />}
 

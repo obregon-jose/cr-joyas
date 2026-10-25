@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
     const sb: SupabaseClient = createClient(url, anon, { global: { headers: { Authorization: `Bearer ${token}` } } });
     const { data: userData, error: userErr } = await sb.auth.getUser(token);
     if (userErr || !userData.user) return fail("Sesión inválida", 401);
-    const { data: isAdmin, error: adminErr } = await sb.rpc("is_admin");
+    let { data: isAdmin, error: adminErr } = await sb.rpc("can_edit");
+    if (adminErr) ({ data: isAdmin, error: adminErr } = await sb.rpc("is_admin")); // migración 018 aún no ejecutada
     if (!adminErr && !isAdmin) return fail("Tu usuario no es administrador", 403);
 
     const body = (await req.json().catch(() => ({}))) as { urls?: unknown; retryPending?: unknown };
