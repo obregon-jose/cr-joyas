@@ -194,7 +194,9 @@ export default function ProductPage({ initial }: { initial: Product }) {
           <ChevronRight className="h-3 w-3" />
           <Link href="/#catalogo" className="transition hover:text-gold-200">Catálogo</Link>
           <ChevronRight className="h-3 w-3" />
-          <span>{product.category}</span>
+          <Link href={`/?categoria=${encodeURIComponent(product.category)}#catalogo`} className="transition hover:text-gold-200">
+            {product.category}
+          </Link>
           <ChevronRight className="h-3 w-3" />
           <span className="text-white/70">{product.name}</span>
         </nav>

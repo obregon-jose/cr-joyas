@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Loading from "@/components/sections/Loading";
 import CursorGlow from "@/components/layout/CursorGlow";
 import Navbar from "@/components/layout/Navbar";
@@ -17,9 +17,23 @@ import Faq from "@/components/sections/Faq";
 import Contact from "@/components/sections/Contact";
 import Footer from "@/components/layout/Footer";
 
-
 export default function Home() {
   const [category, setCategory] = useState("Todas");
+
+  // Enlace desde la ficha de un producto: /?categoria=Anillos#catalogo abre el catálogo con ese filtro.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("categoria");
+    if (!wanted) return;
+    setCategory(wanted);
+    window.history.replaceState(null, "", "/#catalogo"); // limpia la dirección para que al recargar no se vuelva a aplicar
+    setTimeout(
+      () =>
+        document
+          .getElementById("catalogo")
+          ?.scrollIntoView({ behavior: "smooth" }),
+      600,
+    );
+  }, []);
 
   return (
     <main className="relative">
