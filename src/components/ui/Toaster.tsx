@@ -56,7 +56,7 @@ export default function Toaster() {
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-4 bottom-6 z-[200] mx-auto flex max-w-sm flex-col items-stretch gap-2 sm:bottom-8"
+      className="pointer-events-none fixed inset-x-4 top-4 z-[200] mx-auto flex max-w-sm flex-col items-stretch gap-2 sm:top-6"
     >
       <AnimatePresence initial={false}>
         {items.map((t) => (
@@ -64,9 +64,9 @@ export default function Toaster() {
             key={t.id}
             layout
             role={t.kind === "error" ? "alert" : "status"}
-            initial={{ opacity: 0, y: 20, scale: 0.96 }}
+            initial={{ opacity: 0, y: -20, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.97 }}
+            exit={{ opacity: 0, y: -10, scale: 0.97 }}
             transition={{ duration: 0.25 }}
             className={`pointer-events-auto flex items-start gap-3 rounded-2xl border bg-ink-900/95 p-4 text-sm text-white/85 shadow-[0_10px_40px_rgba(0,0,0,0.5)] backdrop-blur ${BORDER[t.kind]}`}
           >
