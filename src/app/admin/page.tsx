@@ -11,6 +11,8 @@ import CategoriesPanel from "@/components/admin/CategoriesPanel";
 import ImageManager from "@/components/admin/ImageManager";
 import SettingsPanel from "@/components/admin/SettingsPanel";
 import ReviewsPanel from "@/components/admin/ReviewsPanel";
+import VariantsEditor, { VariantForm, toRow, toVariantForms, validateVariants } from "@/components/admin/VariantsEditor";
+import { normalizeProduct, withVariantsFallback } from "@/lib/catalog/variants";
 import SummaryPanel from "@/components/admin/SummaryPanel";
 import PromotionsPanel from "@/components/admin/PromotionsPanel";
 import FaqPanel from "@/components/admin/FaqPanel";
@@ -31,6 +33,8 @@ const blank = {
   images: [] as string[],
   stock: "1",
   unlimited: false,
+  variantLabel: "Color",
+  variants: [] as VariantForm[],
   featured: false,
   active: true,
   discount: "",
@@ -53,6 +57,7 @@ export default function AdminPage() {
   const [form, setForm] = useState<Form>(blank);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [originalImages, setOriginalImages] = useState<string[]>([]); // imágenes que el producto ya tenía al empezar a editar
+  const [savedVariants, setSavedVariants] = useState<{ id: string; images: string[] }[]>([]); // opciones guardadas al empezar a editar
   const [saving, setSaving] = useState(false);
   const [isRoot, setIsRoot] = useState(false);
   const [role, setRole] = useState<string | null>(null); // root | admin | viewer (migración 018); null = aún no se sabe o no existe
@@ -85,11 +90,11 @@ export default function AdminPage() {
   const load = useCallback(async () => {
     if (!supabase) return;
     const [p, o, c] = await Promise.all([
-      supabase.from("products").select("*").order("created_at", { ascending: false }),
+      withVariantsFallback((cols) => supabase!.from("products").select(cols).order("created_at", { ascending: false })),
       supabase.from("orders").select("*").order("created_at", { ascending: false }),
       supabase.from("categories").select("*").order("position", { ascending: true }),
     ]);
-    setProducts((p.data as Product[]) ?? []);
+    setProducts(((p.data as unknown[] | null) ?? []).map((x) => normalizeProduct(x, { keepInactive: true })));
     setOrders((o.data as Order[]) ?? []);
     setCatRows(c.error ? [] : ((c.data as Category[]) ?? []));
   }, []);
@@ -188,8 +193,8 @@ export default function AdminPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
         <p className="max-w-md text-white/70">
-          Tu usuario no tiene permisos para ingresar al sistema. Comunicate con el {" "}
-          <code className="text-gold-300">administrador</code>
+          Tu usuario no tiene permisos de administrador. Si es tu cuenta, agrégala a la tabla{" "}
+          <code className="text-gold-300">admins</code> (instrucciones al final de la migración 001).
         </p>
         <button onClick={() => supabase!.auth.signOut()} className="btn-ghost">Cerrar sesión</button>
       </div>
@@ -199,6 +204,7 @@ export default function AdminPage() {
   const startEdit = (p: Product) => {
     setEditingId(p.id);
     setOriginalImages(getImages(p));
+    setSavedVariants((p.variants ?? []).map((v) => ({ id: v.id, images: v.images ?? [] })));
     setForm({
       name: p.name,
       description: p.description ?? "",
@@ -208,6 +214,8 @@ export default function AdminPage() {
       images: getImages(p),
       stock: String(p.stock),
       unlimited: p.unlimited_stock === true,
+      variantLabel: p.variant_label || "Color",
+      variants: toVariantForms(p.variants),
       featured: p.featured,
       active: p.active !== false,
       discount: p.discount_percent ? String(p.discount_percent) : "",
@@ -220,7 +228,10 @@ export default function AdminPage() {
   const cancelEdit = () => {
     // Las imágenes recién subidas que no se llegaron a guardar se borran de ImgBB.
     deleteImages(form.images.filter((u) => !originalImages.includes(u)), token);
+    const savedPics = new Set(savedVariants.flatMap((v) => v.images));
+    deleteImages(form.variants.flatMap((v) => v.images).filter((u) => !savedPics.has(u)), token);
     setOriginalImages([]);
+    setSavedVariants([]);
     setEditingId(null);
     setForm(blank);
   };
@@ -231,6 +242,8 @@ export default function AdminPage() {
     const pct = form.discount.trim() === "" ? null : Number(form.discount);
     if (pct !== null && (!Number.isInteger(pct) || pct < 1 || pct > 90)) return toast.error("El descuento debe ser un número entero entre 1 y 90");
     if (pct !== null && form.promoStart && form.promoEnd && form.promoStart > form.promoEnd) return toast.error("La fecha final de la promoción no puede ser anterior a la inicial");
+    const variantError = validateVariants(form.variants);
+    if (variantError) return toast.error(variantError);
     setSaving(true);
     const payload = {
       name: form.name.trim(),
@@ -242,23 +255,50 @@ export default function AdminPage() {
       images: form.images,
       stock: form.unlimited ? 0 : Number(form.stock),
       unlimited_stock: form.unlimited,
+      // Solo se envía si hay opciones o un nombre distinto: así guardar productos sencillos no exige la migración 019.
+      ...(form.variants.length > 0 || form.variantLabel.trim() !== "Color" ? { variant_label: form.variantLabel.trim() || "Color" } : {}),
       featured: form.featured,
       active: form.active,
       discount_percent: pct,
       promo_start: pct === null ? null : fromDateInput(form.promoStart, "start"),
       promo_end: pct === null ? null : fromDateInput(form.promoEnd, "end"),
     };
-    const { error } = editingId
-      ? await supabase!.from("products").update(payload).eq("id", editingId)
-      : await supabase!.from("products").insert(payload);
+    let productId = editingId;
+    let error: { message: string } | null = null;
+    if (editingId) {
+      ({ error } = await supabase!.from("products").update(payload).eq("id", editingId));
+    } else {
+      const res = await supabase!.from("products").insert(payload).select("id").single();
+      error = res.error;
+      productId = (res.data as { id: string } | null)?.id ?? null;
+    }
+
+    // Opciones (colores, tallas...): se borran las quitadas, se actualizan las existentes y se crean las nuevas.
+    if (!error && productId && (form.variants.length > 0 || savedVariants.length > 0)) {
+      const keep = new Set(form.variants.filter((v) => v.id).map((v) => v.id as string));
+      const removedIds = savedVariants.map((v) => v.id).filter((id) => !keep.has(id));
+      if (removedIds.length) ({ error } = await supabase!.from("product_variants").delete().in("id", removedIds));
+      const existing = form.variants.map((v, i) => ({ v, i })).filter((x) => x.v.id);
+      const created = form.variants.map((v, i) => ({ v, i })).filter((x) => !x.v.id);
+      if (!error && existing.length) {
+        ({ error } = await supabase!.from("product_variants").upsert(existing.map(({ v, i }) => ({ id: v.id, ...toRow(v, productId!, i) }))));
+      }
+      if (!error && created.length) {
+        ({ error } = await supabase!.from("product_variants").insert(created.map(({ v, i }) => toRow(v, productId!, i))));
+      }
+    }
     setSaving(false);
     if (error) {
-      const missingColumn = /(active|images|discount_percent|promo_)/i.test(error.message) && /column/i.test(error.message);
-      return toast.error(missingColumn ? "Falta ejecutar una migración en Supabase (001 columna active, 005 columna images, 011 promociones)." : error.message);
+      const missingColumn = /(active|images|discount_percent|promo_|variant)/i.test(error.message) && /(column|relation|table|schema)/i.test(error.message);
+      return toast.error(missingColumn ? "Falta ejecutar una migración en Supabase (001 columna active, 005 columna images, 011 promociones, 019 opciones)." : error.message);
     }
     // Las imágenes que se quitaron del producto se borran de ImgBB para no llenar el servidor.
     deleteImages(originalImages.filter((u) => !form.images.includes(u)), token);
+    // Fotos de opciones que se quitaron (de una opción o porque se borró la opción completa).
+    const keptPics = new Set(form.variants.flatMap((v) => v.images));
+    deleteImages(savedVariants.flatMap((v) => v.images).filter((u) => !keptPics.has(u)), token);
     setOriginalImages([]);
+    setSavedVariants([]);
     toast.success(editingId ? "Cambios guardados ✓" : "Producto creado ✓");
     setEditingId(null);
     setForm(blank);
@@ -276,9 +316,10 @@ export default function AdminPage() {
     const removed = products.find((p) => p.id === id);
     const { error: delErr } = await supabase!.from("products").delete().eq("id", id);
     if (delErr) return toast.error(delErr.message);
-    if (removed) deleteImages(getImages(removed), token); // el producto ya no existe: sus fotos tampoco
+    if (removed) deleteImages([...getImages(removed), ...(removed.variants ?? []).flatMap((v) => v.images ?? [])], token); // el producto ya no existe: sus fotos tampoco
     if (editingId === id) {
       setOriginalImages([]);
+      setSavedVariants([]);
       setEditingId(null);
       setForm(blank);
     }
@@ -357,18 +398,30 @@ export default function AdminPage() {
           </div>
           <input className="input" placeholder="Nombre" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <textarea className="input" rows={3} placeholder="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className={`grid gap-3 ${form.variants.length > 0 ? "" : "grid-cols-2"}`}>
             <input className="input" type="number" min={0} placeholder="Precio COP" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
-            <input className="input disabled:opacity-40" type="number" min={0} placeholder="Stock (unidades)" value={form.unlimited ? "" : form.stock} disabled={form.unlimited} onChange={(e) => setForm({ ...form, stock: e.target.value })} required={!form.unlimited} />
+            {form.variants.length === 0 && (
+              <input className="input disabled:opacity-40" type="number" min={0} placeholder="Stock (unidades)" value={form.unlimited ? "" : form.stock} disabled={form.unlimited} onChange={(e) => setForm({ ...form, stock: e.target.value })} required={!form.unlimited} />
+            )}
           </div>
-          <label className="flex cursor-pointer items-center gap-3 text-sm text-white/70">
-            <input type="checkbox" checked={form.unlimited} onChange={(e) => setForm({ ...form, unlimited: e.target.checked })} className="h-4 w-4 accent-gold-300" />
-            Stock ilimitado (por encargo o siempre disponible; no se descuenta al vender)
-          </label>
+          {form.variants.length === 0 && (
+            <label className="flex cursor-pointer items-center gap-3 text-sm text-white/70">
+              <input type="checkbox" checked={form.unlimited} onChange={(e) => setForm({ ...form, unlimited: e.target.checked })} className="h-4 w-4 accent-gold-300" />
+              Stock ilimitado (por encargo o siempre disponible; no se descuenta al vender)
+            </label>
+          )}
           <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             {categories.map((c) => <option key={c} className="bg-ink-900">{c}</option>)}
           </select>
           <input className="input" placeholder="Material (Oro 18k · Diamante)" value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} />
+          <VariantsEditor
+            label={form.variantLabel}
+            onLabel={(variantLabel) => setForm((f) => ({ ...f, variantLabel }))}
+            variants={form.variants}
+            onChange={(variants) => setForm((f) => ({ ...f, variants }))}
+            token={token}
+            savedImages={new Set(savedVariants.flatMap((v) => v.images))}
+          />
           <div className="space-y-2 rounded-2xl border border-white/10 p-3">
             <p className="text-sm text-white/60">Promoción <span className="text-white/35">(opcional)</span></p>
             <div className="grid grid-cols-3 gap-2">
@@ -425,7 +478,7 @@ export default function AdminPage() {
                     {paused && <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 align-middle font-sans text-[10px] uppercase tracking-widest">Pausado</span>}
                   </p>
                   <p className="text-xs text-white/40">
-                    {p.category} · {p.unlimited_stock ? "stock ilimitado" : `stock ${p.stock}`} · {formatCOP(p.price)}
+                    {p.category} · {p.variants && p.variants.length > 0 ? `${p.variants.length} ${p.variants.length === 1 ? "opción" : "opciones"}` : p.unlimited_stock ? "stock ilimitado" : `stock ${p.stock}`} · {formatCOP(p.price)}
                     {promoStatus(p) && (
                       <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest ${promoStatus(p) === "activa" ? "bg-emerald-400/15 text-emerald-300" : "bg-white/10 text-white/50"}`}>
                         -{p.discount_percent}% · {promoStatus(p)}

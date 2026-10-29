@@ -7,11 +7,11 @@ import { Heart, Plus, ShoppingCart, Check, Eye, ChevronLeft, ChevronRight } from
 import SafeImage from "@/components/ui/SafeImage";
 import { Product } from "@/lib/types";
 import { useCart } from "@/lib/cart/cart";
-import { getImages } from "@/lib/catalog/images";
+import { allImages, focusImage } from "@/lib/catalog/variants";
 import Price, { DiscountBadge } from "@/components/catalog/Price";
 import { onSale } from "@/lib/catalog/promo";
 import { isNew } from "@/lib/catalog/new-badge";
-import { isSoldOut } from "@/lib/catalog/stock";
+import { hasVariants, isSoldOut } from "@/lib/catalog/stock";
 import { useFavorites } from "@/lib/catalog/favorites";
 
 type Props = {
@@ -26,14 +26,23 @@ export default function ProductCard({ product, onOpen }: Props) {
   const [added, setAdded] = useState(false);
 
   const soldOut = isSoldOut(product);
-  const images = getImages(product);
-  const gallery = images.slice(0, 4);
+  const options = product.variants ?? [];
+  const [optId, setOptId] = useState<string | null>(null); // opción (color) resaltada con los puntos de la tarjeta
+  const shownOpt = options.find((v) => v.id === optId) ?? null;
+  // La tarjeta lleva todas las fotos (generales + de cada color); al elegir un color se enfoca la suya, sin quitar las demás.
+  const gallery = allImages(product).slice(0, 8);
   const [idx, setIdx] = useState(0); // foto que se muestra en la tarjeta
-  const [manual, setManual] = useState(false); // true si ya usó las flechas: se desactiva la vista previa de la 2ª foto
+  const [manual, setManual] = useState(false); // true si ya usó las flechas o un color: se desactiva la vista previa de la 2ª foto
   const step = (e: React.MouseEvent, d: number) => {
     e.stopPropagation();
     setManual(true);
     setIdx((i) => (i + d + gallery.length) % gallery.length);
+  };
+  const pick = (v: (typeof options)[number] | null) => {
+    setOptId(v?.id ?? null);
+    setManual(true);
+    const i = v ? gallery.indexOf(focusImage(v) ?? "") : 0;
+    setIdx(i >= 0 ? i : 0);
   };
   const productId = String(product.id);
   const liked = mounted && has(productId);
@@ -42,6 +51,9 @@ export default function ProductCard({ product, onOpen }: Props) {
   // Agregar al carrito y mostrar una confirmación visual.
   const handleAddToCart = (e: React.MouseEvent<HTMLElement>) => {
     if (soldOut || added) return;
+
+    // Si tiene opciones (colores, tallas...) hay que elegir una en la ficha del producto.
+    if (hasVariants(product)) return onOpen(product);
 
     // Si ya tiene en el carrito todas las unidades, no se agrega y se muestra el aviso.
     if (!add(product, e.currentTarget)) return;
@@ -67,6 +79,7 @@ export default function ProductCard({ product, onOpen }: Props) {
       onMouseLeave={() => {
         setIdx(0);
         setManual(false);
+        setOptId(null);
       }}
     >
       <div
@@ -96,7 +109,7 @@ export default function ProductCard({ product, onOpen }: Props) {
               }}
             >
               <div className="relative h-full w-full">
-                {/* Hasta 4 fotos apiladas: se muestra la elegida con las flechas; con el cursor encima (sin haber usado las flechas) se ve la segunda */}
+                {/* Fotos apiladas: se muestra la elegida con las flechas o con un color; con el cursor encima (sin haber elegido nada) se ve la segunda */}
                 {gallery.map((src, i) => (
                   <SafeImage
                     key={src + i}
@@ -271,6 +284,31 @@ export default function ProductCard({ product, onOpen }: Props) {
             >
               {product.name}
             </h3>
+
+            {options.length > 1 && !options.some((v) => v.color) && (
+              <p className="mt-1.5 truncate text-[10px] uppercase tracking-[0.14em] text-white/45 sm:mt-2 sm:text-[11px]">
+                {options.map((v) => v.name).join(" · ")}
+              </p>
+            )}
+            {options.length > 1 && options.some((v) => v.color) && (
+              <div className="mt-1.5 flex items-center gap-1 sm:mt-2" aria-label={product.variant_label || "Opciones"}>
+                {options.slice(0, 5).map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    title={v.name + (isSoldOut(v) ? " (agotado)" : "")}
+                    aria-label={v.name}
+                    onClick={() => pick(optId === v.id ? null : v)}
+                    onMouseEnter={() => pick(v)}
+                    className={`h-3.5 w-3.5 rounded-full border transition sm:h-4 sm:w-4 ${
+                      shownOpt?.id === v.id ? "border-gold-300 ring-1 ring-gold-300/60" : "border-white/30"
+                    } ${isSoldOut(v) ? "opacity-40" : ""}`}
+                    style={{ background: v.color || "#8a8a8a" }}
+                  />
+                ))}
+                {options.length > 5 && <span className="text-[10px] text-white/45">+{options.length - 5}</span>}
+              </div>
+            )}
 
             <p className="mt-0.5 truncate text-[11px] text-white/45 sm:mt-1 sm:text-sm">
               {product.material}

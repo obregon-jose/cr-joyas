@@ -1,3 +1,17 @@
+/** Opción de un producto (color, talla...) con fotos, stock y precio propios (migración 019). */
+export type Variant = {
+  id: string;
+  product_id: string;
+  name: string;
+  color?: string | null; // muestra visual, ej. "#B76E79"
+  images: string[];
+  stock: number;
+  unlimited_stock?: boolean;
+  price?: number | null; // vacío = usa el precio del producto
+  position: number;
+  active?: boolean;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -10,6 +24,8 @@ export type Product = {
   featured: boolean;
   stock: number;
   unlimited_stock?: boolean; // true = sin límite de unidades (migración 017)
+  variant_label?: string; // cómo se llama la opción: "Color", "Talla"... (migración 019)
+  variants?: Variant[]; // opciones activas, ya ordenadas; vacío o ausente = producto simple
   active?: boolean; // false = pausado, no se muestra en la tienda
   discount_percent?: number | null; // promoción: 1–90 (migración 011)
   promo_start?: string | null; // inicio opcional
@@ -30,6 +46,7 @@ export type Category = {
 export type CartItem = {
   product: Product;
   qty: number;
+  variant_id?: string | null; // opción elegida, si el producto las tiene
 };
 
 export type Order = {
@@ -41,7 +58,7 @@ export type Order = {
   address: string;
   city: string;
   notes?: string | null;
-  items: { id: string; name: string; price: number; qty: number }[];
+  items: { id: string; name: string; price: number; qty: number; variant_id?: string; variant_name?: string }[];
   total: number;
   status: string;
   created_at: string;

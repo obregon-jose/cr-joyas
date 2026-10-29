@@ -22,6 +22,7 @@ import { useCart } from "@/lib/cart/cart";
 import { useFavorites } from "@/lib/catalog/favorites";
 import { getImages } from "@/lib/catalog/images";
 import { isLow, isSoldOut, isUnlimited, maxUnits } from "@/lib/catalog/stock";
+import { allImages, findVariant, focusImage, normalizeProduct, withVariantsFallback } from "@/lib/catalog/variants";
 import { productPath } from "@/lib/catalog/product-url";
 import { useProducts } from "@/lib/catalog/use-products";
 import { PublicReview, summarize, usePublicReviews } from "@/lib/reviews/reviews";
@@ -108,6 +109,7 @@ export default function ProductPage({ initial }: { initial: Product }) {
   const { has, toggle, ready: favReady } = useFavorites();
   const [qty, setQty] = useState(1);
   const [qtyTouched, setQtyTouched] = useState(false);
+  const [variantId, setVariantId] = useState<string | null>(null); // opción elegida (color, talla...)
   const { products } = useProducts();
   const { reviews } = usePublicReviews();
 
@@ -121,6 +123,7 @@ export default function ProductPage({ initial }: { initial: Product }) {
   useEffect(() => {
     setQty(1);
     setQtyTouched(false);
+    setVariantId(null);
     setProduct(initial);
     setGone(false);
   }, [initial]);
@@ -128,28 +131,32 @@ export default function ProductPage({ initial }: { initial: Product }) {
   useEffect(() => {
     if (!supabase) return;
     let alive = true;
-    supabase
-      .from("products")
-      .select("*")
-      .eq("id", initial.id)
-      .maybeSingle()
+    withVariantsFallback((cols) => supabase!.from("products").select(cols).eq("id", initial.id).maybeSingle())
       .then(({ data, error }) => {
         if (!alive || error) return;
         if (!data) return; // puede ser un producto de ejemplo
-        const p = data as Product;
+        const p = normalizeProduct(data);
         if (p.active === false) setGone(true);
-        else setProduct({ ...p, images: getImages(p) });
+        else setProduct(p);
       });
     return () => {
       alive = false;
     };
   }, [initial.id]);
 
-  const images = useMemo(() => getImages(product), [product]);
-  const soldOut = isSoldOut(product);
+  // Opciones del producto: no viene ninguna elegida; hay que pedirla antes de agregar.
+  const variants = product.variants ?? [];
+  const variant = findVariant(product, variantId);
+  const label = product.variant_label || "Color";
+  const needsPick = variants.length > 0 && !variant;
+  const unit = variant ?? product; // lo que define el stock mostrado
+  const askVariant = () => toast.info(`Selecciona ${label.toLowerCase()} antes de continuar.`);
+  const images = useMemo(() => allImages(product), [product]);
+  const shownProduct = useMemo(() => (variant && variant.price != null ? { ...product, price: variant.price } : product), [product, variant]);
+  const soldOut = isSoldOut(unit);
   const liked = favReady && has(String(product.id));
-  const inCart = items.find((i) => i.product.id === product.id)?.qty ?? 0;
-  const maxQty = Math.max(1, maxUnits(product) - inCart); // lo que aún se puede sumar
+  const inCart = items.find((i) => i.product.id === product.id && (i.variant_id ?? null) === (variant?.id ?? null))?.qty ?? 0;
+  const maxQty = needsPick ? 50 : Math.max(1, maxUnits(product, variant) - inCart); // lo que aún se puede sumar
   const shownQty = Math.min(qty, maxQty);
   const rating = summarize(reviews, product.id);
   const mine = useMemo(() => reviews.filter((r) => r.product_id === product.id), [reviews, product.id]);
@@ -210,7 +217,7 @@ export default function ProductPage({ initial }: { initial: Product }) {
 
         <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
           <div className="lg:sticky lg:top-28 lg:self-start">
-            <ZoomGallery key={product.id} images={images} alt={product.name} />
+            <ZoomGallery key={product.id} images={images} alt={product.name} focus={focusImage(variant)} />
           </div>
 
           <div className="flex flex-col gap-5">
@@ -224,8 +231,8 @@ export default function ProductPage({ initial }: { initial: Product }) {
             )}
 
             <div className="flex flex-wrap items-center gap-3">
-              <Price product={product} className="text-4xl sm:text-5xl" />
-              <DiscountBadge product={product} />
+              <Price product={shownProduct} className="text-4xl sm:text-5xl" />
+              <DiscountBadge product={shownProduct} />
             </div>
 
             {product.description && <p className="whitespace-pre-line leading-relaxed text-white/65">{product.description}</p>}
@@ -237,17 +244,50 @@ export default function ProductPage({ initial }: { initial: Product }) {
               </div>
               <div>
                 <dt className="text-white/40">Disponibilidad</dt>
-                <dd className={`mt-1 ${soldOut ? "text-rose-gold" : isLow(product) ? "text-gold-300" : "text-gold-100"}`}>
+                <dd className={`mt-1 ${soldOut ? "text-rose-gold" : isLow(unit) ? "text-gold-300" : "text-gold-100"}`}>
                   {soldOut
                     ? "Agotado"
-                    : isUnlimited(product)
+                    : needsPick
+                      ? `Elige ${label.toLowerCase()} para ver la disponibilidad`
+                      : isUnlimited(unit)
                       ? "Disponible"
-                      : isLow(product)
-                        ? product.stock === 1 ? "¡Queda solo 1 unidad!" : `¡Quedan solo ${product.stock} unidades!`
-                        : `${product.stock} unidades disponibles`}
+                      : isLow(unit)
+                        ? unit.stock === 1 ? "¡Queda solo 1 unidad!" : `¡Quedan solo ${unit.stock} unidades!`
+                        : `${unit.stock} unidades disponibles`}
                 </dd>
               </div>
             </dl>
+
+            {variants.length > 0 && (
+              <div className="space-y-2.5">
+                <p className="text-sm text-white/50">
+                  {label}: {variant ? <span className="text-gold-100">{variant.name}</span> : <span className="text-gold-300">sin elegir</span>}
+                </p>
+                <div className="flex flex-wrap gap-2.5" role="radiogroup" aria-label={product.variant_label || "Color"}>
+                  {variants.map((v) => {
+                    const out = isSoldOut(v);
+                    const active = v.id === variant?.id;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        aria-label={`${v.name}${out ? " (agotado)" : ""}`}
+                        title={`${v.name}${out ? " · agotado" : ""}`}
+                        onClick={() => { setVariantId(v.id); setQty(1); setQtyTouched(false); }}
+                        className={`relative flex items-center gap-2 rounded-full border px-3 py-2 text-xs transition ${
+                          active ? "border-gold-300 bg-gold-300/10 text-gold-100" : "border-white/15 text-white/65 hover:border-gold-300/50"
+                        } ${out ? "opacity-50" : ""}`}
+                      >
+                        {v.color && <span className="h-5 w-5 rounded-full border border-white/30" style={{ background: v.color }} />}
+                        <span className={out ? "line-through" : ""}>{v.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {!soldOut && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -275,7 +315,7 @@ export default function ProductPage({ initial }: { initial: Product }) {
                 </div>
                 {inCart > 0 && (
                   <span className="text-xs text-white/40">
-                    Ya tienes {inCart} en el carrito{shownQty >= maxQty && maxQty === 1 && inCart >= maxUnits(product) ? " (máximo disponible)" : ""}
+                    Ya tienes {inCart} en el carrito{shownQty >= maxQty && maxQty === 1 && inCart >= maxUnits(product, variant) ? " (máximo disponible)" : ""}
                   </span>
                 )}
               </div>
@@ -285,7 +325,8 @@ export default function ProductPage({ initial }: { initial: Product }) {
               <button
                 disabled={soldOut || gone}
                 onClick={(e) => {
-                  if (add(product, e.currentTarget, shownQty)) { setQty(1); setQtyTouched(false); }
+                  if (needsPick) return askVariant();
+                  if (add(product, e.currentTarget, shownQty, variant?.id)) { setQty(1); setQtyTouched(false); }
                 }}
                 className="btn-gold flex-1 disabled:opacity-40"
               >
@@ -294,7 +335,7 @@ export default function ProductPage({ initial }: { initial: Product }) {
               </button>
               <button
                 disabled={soldOut || gone}
-                onClick={() => buyNow(product, qtyTouched ? shownQty : undefined)}
+                onClick={() => (needsPick ? askVariant() : buyNow(product, qtyTouched ? shownQty : undefined, variant?.id))}
                 className="btn-ghost flex-1 disabled:opacity-40"
               >
                 Comprar ahora
@@ -354,7 +395,7 @@ export default function ProductPage({ initial }: { initial: Product }) {
                   <p className="eyebrow mb-2">Seguir viendo</p>
                   <h2 className="font-serif text-3xl sm:text-4xl">Sigue explorando</h2>
                 </div>
-                <Link href="/#catalogo" className="text-sm text-gold-300 transition hover:text-gold-200">Ver el catálogo con filtros</Link>
+                {/* <Link href="/#catalogo" className="text-sm text-gold-300 transition hover:text-gold-200">Ver el catálogo con filtros</Link> */}
               </div>
             </Reveal>
             <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">

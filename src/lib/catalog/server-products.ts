@@ -2,6 +2,7 @@ import { cache } from "react";
 import { supabase } from "@/lib/supabase";
 import { demoProducts } from "@/lib/demo-data";
 import { getImages } from "@/lib/catalog/images";
+import { normalizeProduct, withVariantsFallback } from "@/lib/catalog/variants";
 import { Product } from "@/lib/types";
 
 const FALLBACK_BRAND = "CR Joyas"; // igual que el valor por defecto de Configuración
@@ -12,20 +13,23 @@ const withImages = (p: Product): Product => ({ ...p, images: getImages(p) });
 // cache() de React: generateMetadata y la página piden el mismo producto y solo se consulta una vez por visita.
 export const getProduct = cache(async (id: string): Promise<Product | null> => {
   if (!supabase) return demoProducts.find((p) => p.id === id) ?? null;
-  const { data, error } = await supabase.from("products").select("*").eq("id", id).abortSignal(AbortSignal.timeout(5000)).maybeSingle();
+  const { data, error } = await withVariantsFallback((cols) =>
+    supabase!.from("products").select(cols).eq("id", id).abortSignal(AbortSignal.timeout(5000)).maybeSingle()
+  );
   // Si la consulta falla se lanza el error (en vez de decir "no existe"): así una caída pasajera no se guarda como 404.
   if (error) throw new Error(`No se pudo leer el producto: ${error.message}`);
   if (!data) return demoProducts.find((p) => p.id === id) ?? null;
-  const p = data as Product;
-  return p.active === false ? null : withImages(p);
+  const p = normalizeProduct(data);
+  return p.active === false ? null : p;
 });
 
 /** Todos los productos visibles (para el sitemap). */
 export async function getVisibleProducts(): Promise<Product[]> {
   if (!supabase) return demoProducts;
-  const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false })
-    .abortSignal(AbortSignal.timeout(5000));
-  const list = ((data as Product[] | null) ?? []).filter((p) => p.active !== false).map(withImages);
+  const { data, error } = await withVariantsFallback((cols) =>
+    supabase!.from("products").select(cols).order("created_at", { ascending: false }).abortSignal(AbortSignal.timeout(5000))
+  );
+  const list = ((data as unknown[] | null) ?? []).map((p) => normalizeProduct(p)).filter((p) => p.active !== false);
   return error || list.length === 0 ? demoProducts : list;
 }
 

@@ -105,14 +105,20 @@ export default function SummaryPanel({ orders, products, onGo }: { orders: Order
 
   // Pedidos pendientes y stock bajo se miran siempre, sin importar el periodo.
   const pendingAll = useMemo(() => orders.filter((o) => o.status === "pendiente").length, [orders]);
-  const lowStock = useMemo(
-    () =>
-      products
-        .filter((p) => p.active !== false && !isUnlimited(p) && (isSoldOut(p) || isLow(p)))
-        .sort((a, b) => a.stock - b.stock)
-        .slice(0, 8),
-    [products]
-  );
+  // Piezas (o sus opciones) por agotarse. Si el producto tiene opciones, cada opción lleva su stock.
+  const lowStock = useMemo(() => {
+    const rows: { id: string; name: string; stock: number }[] = [];
+    for (const p of products) {
+      if (p.active === false) continue;
+      const vs = (p.variants ?? []).filter((v) => v.active !== false);
+      if (vs.length > 0) {
+        for (const v of vs) if (!isUnlimited(v) && (isSoldOut(v) || isLow(v))) rows.push({ id: v.id, name: `${p.name} · ${v.name}`, stock: v.stock });
+      } else if (!isUnlimited(p) && (isSoldOut(p) || isLow(p))) {
+        rows.push({ id: p.id, name: p.name, stock: p.stock });
+      }
+    }
+    return rows.sort((a, b) => a.stock - b.stock).slice(0, 8);
+  }, [products]);
 
   const max = Math.max(1, ...data.buckets.map((b) => b.total));
 

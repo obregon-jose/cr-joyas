@@ -1,12 +1,12 @@
 "use client";
 
-import { finalPrice, onSale } from "@/lib/catalog/promo";
+import { onSale } from "@/lib/catalog/promo";
 import { supabase } from "@/lib/supabase";
 import { formatCOP } from "@/lib/format";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { CartItem, Product } from "@/lib/types";
-import { getImages } from "@/lib/catalog/images";
-import { MAX_PER_LINE, isSoldOut, isUnlimited, maxUnits } from "@/lib/catalog/stock";
+import { CartItem, Product, Variant } from "@/lib/types";
+import { findVariant, lineKey, normalizeProduct, priceOf, variantImages, withVariantsFallback } from "@/lib/catalog/variants";
+import { MAX_PER_LINE, hasVariants, isSoldOut, isUnlimited, maxUnits } from "@/lib/catalog/stock";
 import { cartAlert, flyToCart } from "@/lib/cart/fly-to-cart";
 
 type CartCtx = {
@@ -15,15 +15,16 @@ type CartCtx = {
   count: number;
   total: number;
   setOpen: (v: boolean) => void;
-  /** Agrega `qty` unidades (1 por defecto), sin pasar del stock disponible. */
-  add: (p: Product, from?: HTMLElement, qty?: number) => boolean;
+  /** Agrega `qty` unidades (1 por defecto) de la opción indicada, sin pasar del stock disponible. */
+  add: (p: Product, from?: HTMLElement, qty?: number, variantId?: string | null) => boolean;
   /** "Comprar ahora": deja la pieza en el carrito (sin sumar otra si ya estaba) y abre el carrito directo en el pedido. */
-  buyNow: (p: Product, qty?: number) => boolean;
+  buyNow: (p: Product, qty?: number, variantId?: string | null) => boolean;
   /** true cuando el carrito se abrió con "Comprar ahora" y debe saltar a los datos de envío. */
   checkoutRequested: boolean;
   clearCheckoutRequest: () => void;
-  remove: (id: string) => void;
-  setQty: (id: string, qty: number) => void;
+  /** `key` es la clave de la línea (lineKey): producto + opción. */
+  remove: (key: string) => void;
+  setQty: (key: string, qty: number) => void;
   clear: () => void;
   /** Compara el carrito con los datos actuales de la tienda y lo corrige. Devuelve los avisos (vacío = todo en orden). */
   validate: () => Promise<string[]>;
@@ -64,30 +65,41 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setItems(next);
   }, []);
 
-  const stockMessage = (p: Product) =>
-    isSoldOut(p)
-      ? `"${p.name}" está agotado.`
-      : isUnlimited(p)
-        ? `Máximo ${MAX_PER_LINE} unidades de "${p.name}" por pedido.`
-        : `Solo hay ${p.stock} ${p.stock === 1 ? "unidad" : "unidades"} de "${p.name}" y ya ${p.stock === 1 ? "la tienes" : "las tienes"} en tu carrito.`;
+  const labelOf = (p: Product, v?: Variant | null) => (v ? `${p.name} (${v.name})` : p.name);
 
-  // Devuelve true si se agregó; false si ya no hay más unidades disponibles.
+  const stockMessage = (p: Product, v?: Variant | null) => {
+    const unit = v ?? p;
+    const name = labelOf(p, v);
+    return isSoldOut(unit)
+      ? `"${name}" está agotado.`
+      : isUnlimited(unit)
+        ? `Máximo ${MAX_PER_LINE} unidades de "${name}" por pedido.`
+        : `Solo hay ${unit.stock} ${unit.stock === 1 ? "unidad" : "unidades"} de "${name}" y ya ${unit.stock === 1 ? "la tienes" : "las tienes"} en tu carrito.`;
+  };
+
+  // Devuelve true si se agregó; false si falta elegir opción o ya no hay más unidades disponibles.
   const add = useCallback(
-    (p: Product, from?: HTMLElement, qty = 1): boolean => {
+    (p: Product, from?: HTMLElement, qty = 1, variantId?: string | null): boolean => {
+      const v = findVariant(p, variantId);
+      if (hasVariants(p) && !v) {
+        cartAlert(`Elige una opción de "${p.name}".`);
+        return false;
+      }
+      const vid = v?.id ?? null;
       const current = itemsRef.current;
-      const found = current.find((i) => i.product.id === p.id);
-      const available = maxUnits(p) - (found?.qty ?? 0);
+      const found = current.find((i) => i.product.id === p.id && (i.variant_id ?? null) === vid);
+      const available = maxUnits(p, v) - (found?.qty ?? 0);
       if (available <= 0) {
-        cartAlert(stockMessage(p));
+        cartAlert(stockMessage(p, v));
         return false;
       }
       const n = Math.max(1, Math.min(Math.floor(qty) || 1, available));
-      if (n < qty) cartAlert(stockMessage(p));
-      if (from) flyToCart(getImages(p)[0] ?? "", from);
+      if (n < qty) cartAlert(stockMessage(p, v));
+      if (from) flyToCart(variantImages(p, v)[0] ?? "", from);
       commit(
         found
-          ? current.map((i) => (i.product.id === p.id ? { ...i, qty: i.qty + n } : i))
-          : [...current, { product: p, qty: n }]
+          ? current.map((i) => (i === found ? { ...i, qty: i.qty + n } : i))
+          : [...current, { product: p, qty: n, variant_id: vid }]
       );
       return true;
     },
@@ -95,10 +107,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   const buyNow = useCallback(
-    (p: Product, qty?: number): boolean => {
-      const inCart = itemsRef.current.some((i) => i.product.id === p.id);
+    (p: Product, qty?: number, variantId?: string | null): boolean => {
+      const vid = findVariant(p, variantId)?.id ?? null;
+      const inCart = itemsRef.current.some((i) => i.product.id === p.id && (i.variant_id ?? null) === vid);
       // Con cantidad elegida se suma; sin ella, si ya estaba en el carrito no se suma otra.
-      if ((qty !== undefined || !inCart) && !add(p, undefined, qty ?? 1)) return false;
+      if ((qty !== undefined || !inCart) && !add(p, undefined, qty ?? 1, variantId)) return false;
       setCheckoutRequested(true);
       setOpen(true);
       return true;
@@ -109,17 +122,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clearCheckoutRequest = useCallback(() => setCheckoutRequested(false), []);
 
   const remove = useCallback(
-    (id: string) => commit(itemsRef.current.filter((i) => i.product.id !== id)),
+    (key: string) => commit(itemsRef.current.filter((i) => lineKey(i) !== key)),
     [commit]
   );
 
   const setQty = useCallback(
-    (id: string, qty: number) => {
-      const target = itemsRef.current.find((i) => i.product.id === id);
-      if (target && qty > maxUnits(target.product)) cartAlert(stockMessage(target.product));
+    (key: string, qty: number) => {
+      const target = itemsRef.current.find((i) => lineKey(i) === key);
+      const tv = target ? findVariant(target.product, target.variant_id) : null;
+      if (target && qty > maxUnits(target.product, tv)) cartAlert(stockMessage(target.product, tv));
       commit(
         itemsRef.current
-          .map((i) => (i.product.id === id ? { ...i, qty: Math.min(qty, maxUnits(i.product)) } : i))
+          .map((i) => (lineKey(i) === key ? { ...i, qty: Math.min(qty, maxUnits(i.product, findVariant(i.product, i.variant_id))) } : i))
           .filter((i) => i.qty > 0)
       );
     },
@@ -133,34 +147,43 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const validate = useCallback(async (): Promise<string[]> => {
     const current = itemsRef.current;
     if (!supabase || current.length === 0) return [];
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .in("id", current.map((i) => i.product.id));
+    const { data, error } = await withVariantsFallback((cols) =>
+      supabase!.from("products").select(cols).in("id", Array.from(new Set(current.map((i) => i.product.id))))
+    );
     if (error || !data) return [];
 
-    const fresh = new Map((data as Product[]).map((p) => [p.id, p]));
+    const fresh = new Map((data as unknown[]).map((raw) => normalizeProduct(raw)).map((p) => [p.id, p]));
     const notes: string[] = [];
     const next: CartItem[] = [];
 
     for (const item of current) {
       const p = fresh.get(item.product.id);
-      const name = item.product.name;
+      const oldV = findVariant(item.product, item.variant_id);
+      const name = labelOf(item.product, oldV);
       if (!p || p.active === false) {
         notes.push(`"${name}" ya no está disponible y se quitó de tu carrito.`);
         continue;
       }
-      if (isSoldOut(p)) {
+      let v: Variant | null = null;
+      if (hasVariants(p)) {
+        v = findVariant(p, item.variant_id);
+        if (!v) {
+          notes.push(`La opción elegida de "${item.product.name}" ya no está disponible y se quitó de tu carrito.`);
+          continue;
+        }
+      }
+      if (isSoldOut(v ?? p)) {
         notes.push(`"${name}" se agotó y se quitó de tu carrito.`);
         continue;
       }
       let qty = item.qty;
-      if (qty > maxUnits(p)) {
-        qty = maxUnits(p);
-        notes.push(`Solo quedan ${maxUnits(p)} ${maxUnits(p) === 1 ? "unidad" : "unidades"} de "${name}"; ajustamos la cantidad.`);
+      const max = maxUnits(p, v);
+      if (qty > max) {
+        qty = max;
+        notes.push(`Solo quedan ${max} ${max === 1 ? "unidad" : "unidades"} de "${name}"; ajustamos la cantidad.`);
       }
-      const before = finalPrice(item.product);
-      const after = finalPrice(p);
+      const before = priceOf(item.product, oldV);
+      const after = priceOf(p, v);
       if (before !== after) {
         notes.push(
           after > before && onSale(item.product) && !onSale(p)
@@ -168,7 +191,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             : `El precio de "${name}" cambió: antes ${formatCOP(before)}, ahora ${formatCOP(after)}.`
         );
       }
-      next.push({ product: { ...p, images: getImages(p) }, qty });
+      next.push({ product: p, qty, variant_id: v?.id ?? null });
     }
 
     commit(next);
@@ -189,7 +212,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       clear,
       validate,
       count: items.reduce((s, i) => s + i.qty, 0),
-      total: items.reduce((s, i) => s + i.qty * finalPrice(i.product), 0),
+      total: items.reduce((s, i) => s + i.qty * priceOf(i.product, findVariant(i.product, i.variant_id)), 0),
     }),
     [items, open, add, buyNow, checkoutRequested, clearCheckoutRequest, remove, setQty, clear, validate]
   );

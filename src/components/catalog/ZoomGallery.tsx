@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 import SafeImage from "@/components/ui/SafeImage";
 import Lightbox from "@/components/catalog/Lightbox";
 
-type Props = { images: string[]; alt: string };
+type Props = { images: string[]; alt: string; /** Foto a enfocar (por ejemplo, la del color elegido); la galería sigue mostrando todas. */ focus?: string | null };
 
 const ZOOM = 2.4; // aumento al pasar el cursor
 
@@ -16,12 +16,18 @@ const ZOOM = 2.4; // aumento al pasar el cursor
  *  · al hacer clic/tocar se abre el visor a pantalla completa con zoom, pellizco y arrastre;
  *  · en el celular se desliza para cambiar de foto.
  */
-export default function ZoomGallery({ images, alt }: Props) {
+export default function ZoomGallery({ images, alt, focus }: Props) {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
   const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
   const down = useRef<{ x: number; y: number } | null>(null);
   const count = images.length;
+
+  // Al elegir una opción se salta a su foto, sin quitar las demás.
+  useEffect(() => {
+    const i = focus ? images.indexOf(focus) : -1;
+    if (i >= 0) setIndex(i);
+  }, [focus, images]);
 
   // Si cambian las fotos del producto (por ejemplo, al refrescar los datos), no se queda un índice inexistente.
   useEffect(() => setIndex((i) => Math.min(i, Math.max(0, count - 1))), [count]);

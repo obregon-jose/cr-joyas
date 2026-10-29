@@ -1,7 +1,8 @@
 "use client";
 
 import { toast } from "@/lib/ui/toast";
-import { finalPrice, onSale } from "@/lib/catalog/promo";
+import { onSale } from "@/lib/catalog/promo";
+import { findVariant, lineKey, listPrice, priceOf, variantImages } from "@/lib/catalog/variants";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Check, Loader2, MessageCircle, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
@@ -86,7 +87,7 @@ export default function CartDrawer() {
   const placeOrder = async (): Promise<Omit<PlacedOrder, "customer">> => {
     if (!supabase) {
       await new Promise((r) => setTimeout(r, 1200)); // modo demo sin Supabase
-      return { number: null, total, items: items.map((i) => ({ name: i.product.name, price: finalPrice(i.product), qty: i.qty })) };
+      return { number: null, total, items: items.map((i) => { const v = findVariant(i.product, i.variant_id); return { name: v ? `${i.product.name} (${v.name})` : i.product.name, price: priceOf(i.product, v), qty: i.qty }; }) };
     }
     const { data, error: err } = await supabase.rpc("create_order", {
       p_name: form.customer_name,
@@ -95,7 +96,7 @@ export default function CartDrawer() {
       p_address: form.address,
       p_city: form.city,
       p_notes: form.notes,
-      p_items: items.map((i) => ({ id: String(i.product.id), qty: i.qty })),
+      p_items: items.map((i) => ({ id: String(i.product.id), variant_id: i.variant_id ?? undefined, qty: i.qty })),
       p_device: getDeviceId(), // identifica este dispositivo para habilitarle las reseñas
     });
     if (!err && data) {
@@ -105,7 +106,7 @@ export default function CartDrawer() {
     // La migración 007 aún no se ejecutó: se usa el método anterior.
     const missing = err && (err.code === "PGRST202" || err.code === "42883" || /create_order|schema cache/i.test(err.message));
     if (!missing) throw new Error(err?.message ?? "Error al registrar el pedido");
-    const lines = items.map((i) => ({ id: i.product.id, name: i.product.name, price: finalPrice(i.product), qty: i.qty }));
+    const lines = items.map((i) => { const v = findVariant(i.product, i.variant_id); return { id: i.product.id, name: v ? `${i.product.name} (${v.name})` : i.product.name, price: priceOf(i.product, v), qty: i.qty }; });
     const { error: insErr } = await supabase.from("orders").insert({ ...form, items: lines, total });
     if (insErr) throw insErr;
     return { number: null, total, items: lines };
@@ -207,41 +208,52 @@ export default function CartDrawer() {
                     ) : (
                       <ul className="space-y-5">
                         <AnimatePresence initial={false}>
-                          {items.map(({ product, qty }) => (
+                          {items.map((item) => {
+                            const { product, qty } = item;
+                            const variant = findVariant(product, item.variant_id);
+                            const key = lineKey(item);
+                            return (
                             <motion.li
-                              key={product.id}
+                              key={key}
                               layout
                               initial={{ opacity: 0, x: 40 }}
                               animate={{ opacity: 1, x: 0 }}
                               exit={{ opacity: 0, x: 60, height: 0, marginBottom: 0 }}
                               className="flex gap-4 rounded-2xl border border-white/5 bg-white/[0.03] p-3"
                             >
-                              <SafeImage src={product.image_url} alt={product.name} className="h-24 w-24 shrink-0 rounded-xl object-cover" />
+                              <SafeImage src={variantImages(product, variant)[0] ?? product.image_url} alt={product.name} className="h-24 w-24 shrink-0 rounded-xl object-cover" />
                               <div className="flex min-w-0 flex-1 flex-col justify-between">
                                 <div>
                                   <p className="truncate font-serif text-lg">{product.name}</p>
+                                  {variant && (
+                                    <p className="flex items-center gap-1.5 text-xs text-white/55">
+                                      {variant.color && <span className="inline-block h-2.5 w-2.5 rounded-full border border-white/30" style={{ background: variant.color }} />}
+                                      {product.variant_label || "Color"}: {variant.name}
+                                    </p>
+                                  )}
                                   <p className="text-sm text-gold-300">
-                                    {formatCOP(finalPrice(product))}
-                                    {onSale(product) && <span className="ml-2 text-xs text-white/35 line-through">{formatCOP(product.price)}</span>}
+                                    {formatCOP(priceOf(product, variant))}
+                                    {onSale(product) && <span className="ml-2 text-xs text-white/35 line-through">{formatCOP(listPrice(product, variant))}</span>}
                                   </p>
                                 </div>
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-3 rounded-full border border-white/10 px-2 py-1">
-                                    <button onClick={() => setQty(product.id, qty - 1)} aria-label="Menos" className="rounded-full p-1 hover:bg-white/10">
+                                    <button onClick={() => setQty(key, qty - 1)} aria-label="Menos" className="rounded-full p-1 hover:bg-white/10">
                                       <Minus className="h-3.5 w-3.5" />
                                     </button>
                                     <span className="w-4 text-center text-sm">{qty}</span>
-                                    <button onClick={() => setQty(product.id, qty + 1)} aria-label="Más" className="rounded-full p-1 hover:bg-white/10">
+                                    <button onClick={() => setQty(key, qty + 1)} aria-label="Más" className="rounded-full p-1 hover:bg-white/10">
                                       <Plus className="h-3.5 w-3.5" />
                                     </button>
                                   </div>
-                                  <button onClick={() => remove(product.id)} aria-label="Quitar" className="rounded-full p-2 text-white/40 transition hover:text-rose-gold">
+                                  <button onClick={() => remove(key)} aria-label="Quitar" className="rounded-full p-2 text-white/40 transition hover:text-rose-gold">
                                     <Trash2 className="h-4 w-4" />
                                   </button>
                                 </div>
                               </div>
                             </motion.li>
-                          ))}
+                            );
+                          })}
                         </AnimatePresence>
                       </ul>
                     )}

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import ProductPage from "@/components/catalog/ProductPage";
 import { getBrandName, getProduct, getVisibleProducts } from "@/lib/catalog/server-products";
-import { finalPrice, onSale } from "@/lib/catalog/promo";
+import { onSale } from "@/lib/catalog/promo";
+import { fromPrice } from "@/lib/catalog/variants";
 import { idFromSlug, productPath, siteUrl } from "@/lib/catalog/product-url";
 import { isSoldOut } from "@/lib/catalog/stock";
 import { getImages } from "@/lib/catalog/images";
@@ -61,7 +62,7 @@ export default async function Page({ params }: Props) {
     offers: {
       "@type": "Offer",
       priceCurrency: "COP",
-      price: finalPrice(product),
+      price: fromPrice(product),
       availability: !isSoldOut(product) ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       itemCondition: "https://schema.org/NewCondition",
       ...(onSale(product) && product.promo_end ? { priceValidUntil: product.promo_end.slice(0, 10) } : {}),

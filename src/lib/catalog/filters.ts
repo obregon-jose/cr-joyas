@@ -1,6 +1,7 @@
 import { Product } from "@/lib/types";
 import { isSoldOut } from "@/lib/catalog/stock";
-import { finalPrice, onSale } from "@/lib/catalog/promo";
+import { onSale } from "@/lib/catalog/promo";
+import { fromPrice } from "@/lib/catalog/variants";
 
 export type SortKey = "relevance" | "favorites" | "newest" | "price_asc" | "price_desc" | "name";
 
@@ -40,7 +41,7 @@ export const defaultFilters = (): Filters => ({
 // Rango de precios disponible, redondeado al paso del slider.
 export function getBounds(products: Product[]) {
   if (!products.length) return { min: 0, max: 0 };
-  const prices = products.map((p) => finalPrice(p));
+  const prices = products.map((p) => fromPrice(p));
   const min = Math.floor(Math.min(...prices) / PRICE_STEP) * PRICE_STEP;
   const max = Math.ceil(Math.max(...prices) / PRICE_STEP) * PRICE_STEP;
   return { min, max: Math.max(max, min + PRICE_STEP) };
@@ -85,7 +86,7 @@ export function applyFilters(
   const hi = f.maxPrice ?? Infinity;
 
   const list = products.filter((p) => {
-    const price = finalPrice(p);
+    const price = fromPrice(p);
     if (price < lo || price > hi) return false;
     if (f.onlyOnSale && !onSale(p)) return false;
     if (f.onlyFavorites && !favorites.includes(String(p.id))) return false;
@@ -101,9 +102,9 @@ export function applyFilters(
   const time = (p: Product) => (p.created_at ? new Date(p.created_at).getTime() : 0);
   switch (f.sort) {
     case "price_asc":
-      return list.sort((a, b) => finalPrice(a) - finalPrice(b));
+      return list.sort((a, b) => fromPrice(a) - fromPrice(b));
     case "price_desc":
-      return list.sort((a, b) => finalPrice(b) - finalPrice(a));
+      return list.sort((a, b) => fromPrice(b) - fromPrice(a));
     case "name":
       return list.sort((a, b) => a.name.localeCompare(b.name, "es"));
     case "newest":
