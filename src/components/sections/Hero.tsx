@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import SafeImage from "@/components/ui/SafeImage";
 import { parseTitle, ringText, useSiteSettings } from "@/lib/site/site-settings";
@@ -19,15 +19,28 @@ export default function Hero() {
   const ring = ringText(site.hero_ring_text);
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const imgY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
-  const imgScale = useTransform(scrollYProgress, [0, 1], [1.05, 1.25]);
-  const textY = useTransform(scrollYProgress, [0, 1], ["0%", "60%"]);
-  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
-  const ringRotate = useTransform(scrollYProgress, [0, 1], [0, 180]);
+  // El efecto de profundidad solo se usa con mouse: en celular la barra del navegador cambia el alto de la pantalla
+  // mientras se desliza y, con las capas moviéndose, la imagen vibraba. Allí el héroe queda quieto y fluido.
+  const reduce = useReducedMotion();
+  const [fine, setFine] = useState(false);
+  useEffect(() => {
+    const m = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const update = () => setFine(m.matches);
+    update();
+    m.addEventListener("change", update);
+    return () => m.removeEventListener("change", update);
+  }, []);
+  const parallax = fine && !reduce;
+  // Con translate en px (no en %) y sin escalar tanto, el movimiento es más estable.
+  const imgY = useTransform(scrollYProgress, [0, 1], [0, parallax ? 160 : 0]);
+  const imgScale = useTransform(scrollYProgress, [0, 1], [1.05, parallax ? 1.15 : 1.05]);
+  const textY = useTransform(scrollYProgress, [0, 1], [0, parallax ? 220 : 0]);
+  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, parallax ? 0 : 1]);
+  const ringRotate = useTransform(scrollYProgress, [0, 1], [0, parallax ? 180 : 0]);
 
   return (
-    <section id="inicio" ref={ref} className="relative flex min-h-screen items-center overflow-hidden">
-      <motion.div style={{ y: imgY, scale: imgScale }} className="absolute inset-0">
+    <section id="inicio" ref={ref} className="relative flex min-h-[100svh] items-center overflow-hidden">
+      <motion.div style={{ y: imgY, scale: imgScale }} className="absolute inset-0 will-change-transform">
         <SafeImage
           src={site.hero_image}
           alt="Joyería de lujo"
@@ -62,7 +75,7 @@ export default function Hero() {
         />
       ))}
 
-      <motion.div style={{ y: textY, opacity }} className="relative z-10 mx-auto w-full max-w-7xl px-6 pt-24">
+      <motion.div style={{ y: textY, opacity }} className="relative z-10 will-change-transform mx-auto w-full max-w-7xl px-6 pt-24">
         <motion.p
           initial={{ opacity: 0, letterSpacing: "0.1em" }}
           animate={{ opacity: 1, letterSpacing: "0.45em" }}
