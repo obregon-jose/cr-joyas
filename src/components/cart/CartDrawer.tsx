@@ -5,7 +5,7 @@ import { onSale } from "@/lib/catalog/promo";
 import { findVariant, lineKey, listPrice, priceOf, variantImages } from "@/lib/catalog/variants";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, Loader2, MessageCircle, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import SafeImage from "@/components/ui/SafeImage";
 import { useCart } from "@/lib/cart/cart";
 import { formatCOP } from "@/lib/format";
@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { useSiteSettings, waLink } from "@/lib/site/site-settings";
 import { buildOrderMessage } from "@/lib/cart/order-message";
 import { getDeviceId } from "@/lib/device";
+import { WhatsAppIcon } from "@/app/icons";
 
 type Step = "cart" | "checkout" | "done";
 
@@ -327,7 +328,7 @@ export default function CartDrawer() {
                           rel="noreferrer"
                           className="btn-gold w-full"
                         >
-                          <MessageCircle className="h-4 w-4" /> Enviar pedido por WhatsApp
+                          <WhatsAppIcon className="h-4 w-4" /> Enviar pedido por WhatsApp
                         </a>
                         <p className="text-xs text-white/40">Opcional: agiliza la confirmación. Puedes enviarlo cuando quieras.</p>
                       </div>

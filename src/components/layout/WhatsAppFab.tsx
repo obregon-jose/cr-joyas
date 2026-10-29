@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { MessageCircle } from "lucide-react";
 import { WhatsAppIcon } from "@/app/icons"
 import { useSiteSettings, waLink } from "@/lib/site/site-settings";
 
@@ -11,7 +10,7 @@ export default function WhatsAppFab() {
 
   return (
     <motion.a
-      href={`https://wa.me/${waLink(site.whatsapp)}`}
+      href={waLink(site.whatsapp, "Hola, quisiera más información sobre sus joyas.")}
       target="_blank"
       rel="noreferrer"
       aria-label="WhatsApp"

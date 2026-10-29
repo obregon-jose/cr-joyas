@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Heart, Link2, Minus, Plus, MessageCircle, Quote, ShieldCheck, ShoppingBag, Truck, Gem } from "lucide-react";
+import { ChevronRight, Heart, Link2, Minus, Plus, Quote, ShieldCheck, ShoppingBag, Truck, Gem } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -28,6 +28,7 @@ import { useProducts } from "@/lib/catalog/use-products";
 import { PublicReview, summarize, usePublicReviews } from "@/lib/reviews/reviews";
 import { useSiteSettings, waLink } from "@/lib/site/site-settings";
 import { toast } from "@/lib/ui/toast";
+import { WhatsAppIcon } from "@/app/icons";
 
 const PAGE = 8; // piezas que se muestran de golpe al final de la ficha
 const REVIEWS_SHOWN = 6;
@@ -354,7 +355,7 @@ export default function ProductPage({ initial }: { initial: Product }) {
 
             <div className="flex flex-wrap gap-3">
               <a href={ask} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-xs text-white/65 transition hover:border-gold-300/50 hover:text-gold-200">
-                <MessageCircle className="h-4 w-4" /> Preguntar por WhatsApp
+                <WhatsAppIcon className="h-4 w-4" /> Preguntar por WhatsApp
               </a>
               <button onClick={share} className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-xs text-white/65 transition hover:border-gold-300/50 hover:text-gold-200">
                 <Link2 className="h-4 w-4" /> Compartir

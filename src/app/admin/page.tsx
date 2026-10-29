@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Eye, EyeOff, Loader2, LogOut, MessageCircle, Pencil, Star, Trash2, X } from "lucide-react";
+import { Eye, EyeOff, Loader2, LogOut, Pencil, Star, Trash2, X } from "lucide-react";
 import { toast } from "@/lib/ui/toast";
 import { supabase } from "@/lib/supabase";
 import { formatCOP } from "@/lib/format";
@@ -21,6 +21,7 @@ import { useSiteSettings, waLink } from "@/lib/site/site-settings";
 import { buildCustomerMessage, buildReviewMessage, phoneToWa } from "@/lib/cart/order-message";
 import { getImages } from "@/lib/catalog/images";
 import { deleteImages } from "@/lib/media/delete-images";
+import { WhatsAppIcon } from "../icons";
 
 const DEFAULT_CATEGORIES = ["Anillos", "Collares", "Aretes", "Pulseras"];
 
@@ -535,7 +536,7 @@ export default function AdminPage() {
                     title="Escribir al cliente por WhatsApp"
                     className="flex items-center gap-2 rounded-full border border-gold-400/30 px-4 py-2 text-xs uppercase tracking-widest text-gold-200 transition hover:border-gold-300"
                   >
-                    <MessageCircle className="h-4 w-4" /> WhatsApp
+                    <WhatsAppIcon className="h-4 w-4" /> WhatsApp
                   </a>
                   {["pagado", "enviado", "entregado"].includes(o.status) && o.order_number ? (
                     <a
