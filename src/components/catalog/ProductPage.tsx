@@ -218,6 +218,31 @@ export default function ProductPage({ initial }: { initial: Product }) {
         <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
           <div className="lg:sticky lg:top-28 lg:self-start">
             <ZoomGallery key={product.id} images={images} alt={product.name} focus={focusImage(variant)} />
+            {variants.filter((v) => v.images.length > 0).length > 1 && (
+              <div className="mt-4 flex flex-wrap gap-3" role="group" aria-label={`Fotos por ${label.toLowerCase()}`}>
+                {variants
+                  .filter((v) => v.images.length > 0)
+                  .map((v) => {
+                    const on = v.id === variant?.id;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => { setVariantId(v.id); setQty(1); setQtyTouched(false); }}
+                        aria-label={`Ver ${v.name}`}
+                        aria-pressed={on}
+                        className="group flex w-16 flex-col items-center gap-1.5 text-center sm:w-20"
+                      >
+                        <span className={`block aspect-square w-full overflow-hidden rounded-xl border transition ${on ? "border-gold-300 ring-1 ring-gold-300/60" : "border-white/15 group-hover:border-gold-300/50"} ${isSoldOut(v) ? "opacity-50" : ""}`}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={v.images[0]} alt="" loading="lazy" className="h-full w-full object-cover" />
+                        </span>
+                        <span className={`line-clamp-1 text-[11px] ${on ? "text-gold-100" : "text-white/50"} ${isSoldOut(v) ? "line-through" : ""}`}>{v.name}</span>
+                      </button>
+                    );
+                  })}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-5">

@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import { X } from "lucide-react";
-import { Filters, PRICE_STEP } from "@/lib/catalog/filters";
+import { Filters, OptionChoice, PRICE_STEP } from "@/lib/catalog/filters";
 import { formatCOP } from "@/lib/format";
+import { useFavorites } from "@/lib/catalog/favorites";
 
 type Props = {
   open: boolean;
@@ -16,6 +17,8 @@ type Props = {
   category: string;
   setCategory: (c: string) => void;
   materials: string[];
+  optionList: OptionChoice[];
+  optionTitle: string;
   resultCount: number;
   onClear: () => void;
 };
@@ -112,10 +115,13 @@ export default function FilterPanel({
   category,
   setCategory,
   materials,
+  optionList,
+  optionTitle,
   resultCount,
   onClear,
 }: Props) {
   const [desktop, setDesktop] = useState(false);
+  const { count: favCount } = useFavorites();
   const controls = useDragControls();
 
   useEffect(() => {
@@ -141,6 +147,11 @@ export default function FilterPanel({
   const hi = filters.maxPrice ?? bounds.max;
   const setRange = (a: number, b: number) =>
     onChange({ ...filters, minPrice: a <= bounds.min ? null : a, maxPrice: b >= bounds.max ? null : b });
+  const toggleOption = (k: string) =>
+    onChange({
+      ...filters,
+      options: filters.options.includes(k) ? filters.options.filter((x) => x !== k) : [...filters.options, k],
+    });
   const toggleMaterial = (m: string) =>
     onChange({
       ...filters,
@@ -221,6 +232,20 @@ export default function FilterPanel({
                 </section>
               )}
 
+              {optionList.length > 0 && (
+                <section>
+                  <h3 className="eyebrow mb-3">{optionTitle}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {optionList.map((o) => (
+                      <button key={o.key} onClick={() => toggleOption(o.key)} aria-pressed={filters.options.includes(o.key)} className={`${chip(filters.options.includes(o.key))} inline-flex items-center gap-2`}>
+                        {o.color && <span className="h-3.5 w-3.5 rounded-full border border-white/30" style={{ background: o.color }} />}
+                        {o.name}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {materials.length > 0 && (
                 <section>
                   <h3 className="eyebrow mb-3">Material o piedra</h3>
@@ -253,6 +278,12 @@ export default function FilterPanel({
                   desc="Piezas con descuento vigente"
                   on={filters.onlyOnSale}
                   onChange={(v) => onChange({ ...filters, onlyOnSale: v })}
+                />
+                <Toggle
+                  label="Solo mis favoritos"
+                  desc={favCount === 0 ? "Aún no marcas ninguno con el corazón" : `${favCount} ${favCount === 1 ? "pieza marcada" : "piezas marcadas"} con el corazón`}
+                  on={filters.onlyFavorites}
+                  onChange={(v) => onChange({ ...filters, onlyFavorites: v })}
                 />
               </section>
             </div>

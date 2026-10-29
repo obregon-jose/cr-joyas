@@ -22,6 +22,8 @@ import {
   defaultFilters,
   getBounds,
   materialOptions,
+  optionChoices,
+  optionsTitle,
   SORT_LABELS,
 } from "@/lib/catalog/filters";
 import { formatCOP } from "@/lib/format";
@@ -66,6 +68,8 @@ export default function ProductGrid({ category, setCategory }: Props) {
 
   const bounds = useMemo(() => getBounds(shown), [shown]);
   const materials = useMemo(() => materialOptions(shown), [shown]);
+  const optionList = useMemo(() => optionChoices(shown), [shown]);
+  const optionTitle = useMemo(() => optionsTitle(shown), [shown]);
 
   const byCategory = useMemo(
     () => (category === "Todas" ? shown : shown.filter((p) => p.category === category)),
@@ -113,6 +117,13 @@ export default function ProductGrid({ category, setCategory }: Props) {
             : `${formatCOP(lo)} – ${formatCOP(hi)}`;
       list.push({ key: "price", label, remove: () => setFilters((f) => ({ ...f, minPrice: null, maxPrice: null })) });
     }
+    filters.options.forEach((k) =>
+      list.push({
+        key: `o-${k}`,
+        label: `${optionTitle}: ${optionList.find((o) => o.key === k)?.name ?? k}`,
+        remove: () => setFilters((f) => ({ ...f, options: f.options.filter((x) => x !== k) })),
+      })
+    );
     filters.materials.forEach((m) =>
       list.push({
         key: `m-${m}`,
@@ -129,7 +140,7 @@ export default function ProductGrid({ category, setCategory }: Props) {
     if (filters.onlyFavorites)
       list.push({ key: "fav", label: "Mis favoritos", remove: () => setFilters((f) => ({ ...f, onlyFavorites: false })) });
     return list;
-  }, [category, filters, bounds, setCategory]);
+  }, [category, filters, bounds, setCategory, optionList, optionTitle]);
 
   const hasOffers = useMemo(() => shown.some(onSale), [shown]);
 
@@ -274,6 +285,8 @@ export default function ProductGrid({ category, setCategory }: Props) {
         category={category}
         setCategory={setCategory}
         materials={materials}
+        optionList={optionList}
+        optionTitle={optionTitle}
         resultCount={filtered.length}
         onClear={clearAll}
       />
