@@ -3,6 +3,7 @@ import "./globals.css";
 import { CartProvider } from "@/lib/cart/cart";
 import Toaster from "@/components/ui/Toaster";
 import { getSiteSeo } from "@/lib/catalog/server-products";
+import Christmas from "@/components/christmas/Christmas";
 
 // El título y la descripción vienen de Configuración; se actualizan solos cada minuto.
 export const revalidate = 60;
@@ -35,7 +36,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="grain">
         <CartProvider>{children}</CartProvider>
+        <Christmas />
         <Toaster />
+        
       </body>
     </html>
   );
