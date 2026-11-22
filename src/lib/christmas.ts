@@ -65,7 +65,7 @@ export function greetingFor(now: Date = new Date()): Greeting {
       title: "Feliz Navidad",
       count: days,
       countLabel: "días para Navidad",
-      text: "Regala brillo: piezas únicas en oro 18k con empaque de regalo de lujo.",
+      text: "Regala brillo: piezas únicas en oro laminado de 18k con empaque de regalo de lujo.",
     };
   }
   if (days === 1) {

@@ -85,8 +85,8 @@ export default function Christmas() {
       {snow && <Snow calm={!!reduce} />}
 
       {/* Interruptor de nieve, sobre el botón de WhatsApp */}
-        <div className="fixed bottom-24 left-6 z-40">
-          {/* <AnimatePresence>
+        {/*<div className="fixed bottom-24 left-6 z-40">
+           <AnimatePresence>
             {hint && (
               <motion.span
                 initial={{ opacity: 0, x: -6 }}
@@ -98,7 +98,7 @@ export default function Christmas() {
                 {snow ? "Nieve activada" : "Nieve apagada"}
               </motion.span>
             )}
-          </AnimatePresence> */}
+          </AnimatePresence> 
           <motion.button
             type="button"
             onClick={toggleSnow}
@@ -117,7 +117,7 @@ export default function Christmas() {
           >
             <Snowflake className="h-5 w-5" />
           </motion.button>
-        </div>
+        </div>*/}
 
       {/* Saludo con cuenta regresiva */}
       <AnimatePresence>
