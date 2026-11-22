@@ -16,6 +16,9 @@ export async function generateMetadata(): Promise<Metadata> {
     description: seo.description,
     openGraph: { title: seo.title, description: seo.description, siteName: seo.brand, type: "website", locale: "es_CO", images },
     twitter: { card: images ? "summary_large_image" : "summary", title: seo.title, description: seo.description, images },
+    verification: {
+    google: "SM1h4jU_nI-Z-wSfALsiVmvB6zV0AS7jZFruE0f2MYo",
+  },
   };
 }
 
